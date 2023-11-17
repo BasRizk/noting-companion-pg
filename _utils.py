@@ -20,8 +20,11 @@ def construct_prompt(cells, prev_messages=None):
             prev_messages = []
         prev_messages = [{ "role": "system", "content": sys_prompt}] + prev_messages
     
-        
-    _messages = prev_messages + [{ "role": "user", "content": str(cells)}]
+    
+    if cells is not None:
+        _messages = prev_messages + [{ "role": "user", "content": str(cells)}]
+    else:
+        _messages = prev_messages
     return _messages
 
 def prompt(
@@ -29,7 +32,8 @@ def prompt(
     # model="gpt-4",
     # model='gpt-3.5-turbo-16k-0613',
     model='gpt-3.5-turbo-16k',
-    ):
+    **kwargs
+):
     num_tokens = count_tokens_in_prompt_messages(_messages, model_name=model)
     print(f'num_tokens from prompt: {num_tokens}')
     if num_tokens > 16000:
@@ -44,6 +48,7 @@ def prompt(
         top_p=1,
         frequency_penalty=0,
         presence_penalty=0,
+        **kwargs
     )
     
     response_msg = response['choices'][0]['message']

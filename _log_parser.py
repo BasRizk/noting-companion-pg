@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from tabulate import tabulate
 
@@ -260,36 +261,52 @@ class LogParser:
             if not broken_session:
                 print('All entries are consecutive')
                 
-                
-    def attach_notebooks(self, all_training_notebooks_filepathes, verbose=False, filter=lambda x: x.startswith('X-subject')):
-        linked_notebooks = self.get_notebooks()
-        # TODO filter first instead of later
-        related_notebooks = list(linked_notebooks.intersection(all_training_notebooks_filepathes))
-        related_notebooks.sort()
-        if verbose:
-            print('Related notebooks:')
-            for i, nb_filepath in enumerate(related_notebooks):
-                print(f"{i} {nb_filepath}")
+    def attach_notebooks(self,
+        notebooks_dir, verbose=False,
+        filter=lambda x: re.match(r'[A-Z]-subject-.+.ipynb', x),
+        # filter=lambda x: x.startswith('X-subject')
+    ):
+        import os
+        from _utils import get_all_file_with_extension_in_dir_recursively
+        from _nb_parser import NotebookParser
+        
+        if verbose: print(f'Filtering notebooks with filter: {filter.__name__}') 
 
-        # TODO put this up
+        nb_filepaths_dict = {
+            os.path.basename(nb_filepath): nb_filepath
+            for nb_filepath in
+            get_all_file_with_extension_in_dir_recursively(notebooks_dir, ".ipynb")
+            if filter(os.path.basename(nb_filepath))
+        }
+        print(f'\nThere are total {len(nb_filepaths_dict)} notebooks found in {notebooks_dir} directory')
+        
+        linked_notebooks = self.get_notebooks()
+        found_related_notebooks = list(linked_notebooks.intersection(nb_filepaths_dict.keys()))
         if verbose:
-            print('\nKeeping only notebooks starting with X-subject')   
-        related_notebooks = [nb_filepath for nb_filepath in related_notebooks if filter(nb_filepath)]
-        log_parser_per_notebook = self.divide_per_notebook(related_notebooks) 
+            print('Found Related notebooks:')
+            for i, nb_filepath in enumerate(found_related_notebooks):
+                print(f"{i} {nb_filepath}")
+         
+        log_parser_per_notebook = self.divide_per_notebook(found_related_notebooks) 
+        
+        log_parser_per_notebook = {
+            nb_filepath: (log_parser, NotebookParser(nb_filepaths_dict[nb_filepath]))
+            for nb_filepath, log_parser in log_parser_per_notebook.items()
+        }
         
         num_notebooks = len(log_parser_per_notebook)   
         print(f'There are {num_notebooks} notebooks with logs')
-        # filter only continous logs (i.e. logs sections on the same notebook)
-        log_parser_per_notebook = {
-            nb_filepath: parser
-            for nb_filepath, parser in log_parser_per_notebook.items()
-            if parser.is_continous_notebook_log()
-        }
-        print(f'There are {len(log_parser_per_notebook)} out of {num_notebooks} notebooks with continous logs')
         
-        if verbose:
-            print('Dropped non continous notebooks:')
-            for nb_filepath in set(related_notebooks) - set(log_parser_per_notebook.keys()):
-                print(nb_filepath)
+        # filter only continous logs (i.e. logs sections on the same notebook)
+        # log_parser_per_notebook = {
+        #     nb_filepath: parser
+        #     for nb_filepath, parser in log_parser_per_notebook.items()
+        #     if parser.is_continous_notebook_log()
+        # }
+        # print(f'There are {len(log_parser_per_notebook)} out of {num_notebooks} notebooks with continous logs')
+        # if verbose:
+        #     print('Dropped non continous notebooks:')
+        #     for nb_filepath in set(found_related_notebooks) - set(log_parser_per_notebook.keys()):
+        #         print(nb_filepath)
             
         return log_parser_per_notebook

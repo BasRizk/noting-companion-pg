@@ -42,8 +42,8 @@ class NBStep:
             prev_entries_pp = "None"
             
         return f"{'='*80}\n" +\
-            f"Prev entries:\n{prev_entries_pp}\n" +\
-            f"Log entry @ cell_id {self.cell_id}:\n{entry_content_pp}\n" +\
+            f"Prev entries:\n{prev_entries_pp}\n\n" +\
+            f"Log entry @ cell_id {self.cell_id}:\n{entry_content_pp}\n\n" +\
             f"Notebook State:\n{self.nb_parser_state}\n" +\
             f"{'='*80}"
             
@@ -57,7 +57,6 @@ class NBStep:
             return next_step
         return None
     
-        
 
 def get_notebook_progress(nb_parser, nb_log_parser, verbose=0):
     nb_progress = [NBStep(nb_parser)]
@@ -81,6 +80,7 @@ def get_notebook_progress(nb_parser, nb_log_parser, verbose=0):
                 recent_non_matching_entries.append(log_entry)
 
     if len(recent_non_matching_entries):
+        breakpoint()
         raise Exception(f'Failed to place {len(recent_non_matching_entries)} non-matching entries')
 
     nb_progress = list(reversed(nb_progress))
@@ -90,3 +90,43 @@ def get_notebook_progress(nb_parser, nb_log_parser, verbose=0):
     if len(nb_progress) < 2:
         raise Exception('Failed to find any progress')
     return nb_progress
+
+
+# from _log_parser import LogParser
+# from _nb_parser import NotebookParser
+
+# def get_all_notebooks_progress(nb_log_parser: LogParser, all_notebooks_filepaths, verbose=0):
+#     open_notebooks_progress = {}
+#     # skipped_notebooks = []
+#     # nb_progress = [NBStep(nb_parser)]
+#     recent_non_matching_entries = []
+#     for i, log_entry in enumerate(reversed(nb_log_parser)):
+#         nb_log_parser
+#         if log_entry.entry_type == "CELL_EXECUTION_END" and log_entry.cell_type == "code":
+#             next_step = nb_progress[-1].generate_next_step(log_entry)
+#             if next_step is not None:
+#                 next_step.add_prev_entries(recent_non_matching_entries)
+#                 recent_non_matching_entries = []
+#                 nb_progress.append(next_step)
+#                 if verbose:
+#                     print(f'Cell {i} found\nProgress at {i}')
+#                     # print(nb_progress[-1])
+#             else:
+#                 if verbose:
+#                     print('><'*40)
+#                     entry_content_pp = textwrap.indent('\n'.join(log_entry.content.split('\\n')), '    ')
+#                     print(f'Cell {i} not found:\n{entry_content_pp}')
+#                     print('><'*40)           
+#                 recent_non_matching_entries.append(log_entry)
+
+#     if len(recent_non_matching_entries):
+#         breakpoint()
+#         raise Exception(f'Failed to place {len(recent_non_matching_entries)} non-matching entries')
+
+#     nb_progress = list(reversed(nb_progress))
+#     if verbose:
+#         print(f'There are {len(nb_progress)} notebooks in the progress')
+
+#     if len(nb_progress) < 2:
+#         raise Exception('Failed to find any progress')
+#     return nb_progress 
