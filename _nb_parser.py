@@ -10,17 +10,17 @@ class CellEntry:
         self.execution_count = execution_count
         self.outputs = outputs
         self.metadata = metadata
-        
+
     def __str__(self):
         return json.dumps({
             'cell_type': self.cell_type,
             'cell_id': self.cell_id,
             'source': self.source,
         }, indent=4)
-        
+
     def __repr__(self):
         return self.__str__()
-    
+
     def print(self, width_of_tabulate=100, compact=True):
         _ptable = [
             ["Cell Type", self.cell_type],
@@ -34,9 +34,9 @@ class CellEntry:
                 _ptable.append(["Outputs", self.outputs])
             if self.metadata:
                 _ptable.append(["Metadata", self.metadata])
-        print(tabulate(_ptable, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center"))
+        print(tabulate(_ptable, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center", width=width_of_tabulate))
         print()
-    
+
     def get_json(self, compact=True):
         json_data = {
             'cell_type': self.cell_type,
@@ -51,7 +51,7 @@ class CellEntry:
             if self.metadata:
                 json_data['metadata'] = self.metadata
         return json_data
-    
+
     def __eq__(self, other):
         if isinstance(other, CellEntry):
             for key in self.__dict__.keys():
@@ -67,15 +67,15 @@ class NotebookParser:
         with open(self.filepath) as f:
             self.json_data = json.load(f)
         self.parse()
-        
+
     def __str__(self):
         return json.dumps(
             self.get_cells(json=True, compact=True), indent=4
         )
-    
+
     def __repr__(self):
         return self.__str__()
-    
+
     def drop_cell(self, cell, copy=True):
         # remove first occurance of cell
         if copy:
@@ -84,7 +84,7 @@ class NotebookParser:
             _self = self
         _self.cell_entries.remove(cell)
         return _self
-    
+
     def drop_code(self, cell, copy=True):
         if copy:
             _self = deepcopy(self)
@@ -98,7 +98,16 @@ class NotebookParser:
                 _self.cell_entries[cell.cell_id].source = cell.source[:i]
                 break
         return _self
-    
+
+    def replace_cell_content(self, cell, log_content, copy=True):
+        if copy:
+            _self = deepcopy(self)
+        else:
+            _self = self
+
+        _self.cell_entries[cell.cell_id].source = log_content.split('\\n')
+        return _self
+
     def apply_log_entry(self, cell_id, log_entry, copy=True):
         if copy:
             _self = deepcopy(self)
@@ -106,7 +115,7 @@ class NotebookParser:
             _self = self
         _self.cell_entries[cell_id].source = log_entry.content.split('\\n')
         return _self
-    
+
     def find_cell_by_content(self, content, start_from_top=True):
         def _unify_encoding(*strs, encoding='ascii', errors='backslashreplace'):
             # import chardet
@@ -133,9 +142,9 @@ class NotebookParser:
                     # breakpoint()
                     break
             if equal:
-                return cell          
+                return cell
         return None
-    
+
     def get_cells(self, json=True, compact=True):
         if json:
             cells_json = []
@@ -144,25 +153,25 @@ class NotebookParser:
             return cells_json
         else:
             return self.cell_entries
-        
+
     def parse(self):
-        self.cell_entries = []
+        self.cell_entries: CellEntry = []
         cells = self.json_data['cells']
         for i, cell in enumerate(cells):
             cell_id = i # NOTE: rewriting interpretable cell IDs
             cell_type = cell['cell_type']
             source = cell['source']
-            
+
             executation_count = cell.get('execution_count')
             outputs = cell.get('outputs')
             metadata = cell.get('metadata')
             cell_entry = CellEntry(cell_type, cell_id, source, executation_count, outputs, metadata)
             self.cell_entries.append(cell_entry)
         return self
-    
+
     def __len__(self):
         return len(self.cell_entries)
-    
+
     def __getitem__(self, key):
         return self.cell_entries[key]
 

@@ -1,7 +1,7 @@
 import backoff
 import traceback
 import sys
-import os 
+import os
 import openai
 import tiktoken
 import json
@@ -10,22 +10,28 @@ from loguru import logger
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
-def construct_prompt(cells, prev_messages=None):
-    with open('code_explain_sys_msg.txt') as f:
-        sys_prompt = ''.join(f.readlines())
-    
+def _construct_prompt(sys_prompt, user_input, prev_messages=None):
     if not prev_messages or prev_messages[0].get('role') != 'system':
         if prev_messages is None:
             prev_messages = []
         prev_messages = [{ "role": "system", "content": sys_prompt}] + prev_messages
-    
-    
-    if cells is not None:
-        _messages = prev_messages + [{ "role": "user", "content": str(cells)}]
+
+    if user_input is not None:
+        _messages = prev_messages + [{ "role": "user", "content": str(user_input)}]
     else:
         _messages = prev_messages
     return _messages
+
+def construct_code_explain_prompt(cells, prev_messages=None):
+    with open('code_explain.system_prompt') as f:
+        sys_prompt = ''.join(f.readlines())
+    return _construct_prompt(sys_prompt, cells, prev_messages=prev_messages)
+
+def construct_make_questions_prompt(user_input, prev_messages=None):
+    with open('make_questions.system_prompt') as f:
+        sys_prompt = ''.join(f.readlines())
+    return _construct_prompt(sys_prompt, user_input, prev_messages=prev_messages)
+
 
 def prompt(
     _messages,
@@ -37,9 +43,9 @@ def prompt(
     num_tokens = count_tokens_in_prompt_messages(_messages, model_name=model)
     print(f'num_tokens from prompt: {num_tokens}')
     if num_tokens > 16000:
-        logger.error('Too many tokens, splitting into multiple prompts')    
+        logger.error('Too many tokens, splitting into multiple prompts')
         breakpoint()
-    
+
     response = chat_completions_with_backoff(
         model=model,
         messages=_messages,
@@ -50,7 +56,7 @@ def prompt(
         presence_penalty=0,
         **kwargs
     )
-    
+
     response_msg = response['choices'][0]['message']
     num_tokens_from_response = count_tokens_in_prompt_messages([response_msg], model_name=model)
     print(f'num_tokens from response: {num_tokens_from_response}')
@@ -60,7 +66,7 @@ def prompt(
 def chat_completions_with_backoff(**kwargs):
     return openai.ChatCompletion.create(**kwargs)
 
-def num_tokens_from_string(string: str, model_name='gpt-3.5-turbo', encoding_name: str=None) -> int:
+def count_tokens_in_string(string: str, model_name='gpt-3.5-turbo', encoding_name: str=None) -> int:
     """Returns the number of tokens in a text string."""
     if encoding_name:
         encoding = tiktoken.get_encoding(encoding_name)
@@ -75,7 +81,7 @@ def count_tokens_in_prompt_messages(messages: list, model_name='gpt-3.5-turbo') 
     """Returns the number of tokens in a list of prompt messages."""
     num_tokens = 0
     for message in messages:
-        num_tokens += num_tokens_from_string(message['content'], model_name=model_name)
+        num_tokens += count_tokens_in_string(message['content'], model_name=model_name)
     return num_tokens
 
 
@@ -89,10 +95,10 @@ def pprint_msg(assistant_msg, width=100):
             prepared_json_format = eval(assistant_msg['content'])
         except:
             prepared_json_format = assistant_msg['content']
-            
+
     print(json.dumps(prepared_json_format, indent=4))
     print('='*width, '\n')
-    
+
 # Context manager that copies stdout and any exceptions to a log file
 class Tee(object):
     def __init__(self, filename):
@@ -110,7 +116,7 @@ class Tee(object):
         if exc_type is not None:
             self.file.write(traceback.format_exc())
         self.file.close()
-        
+
 
     def write(self, data):
         self.file.write(data)
@@ -119,7 +125,7 @@ class Tee(object):
     def flush(self):
         self.file.flush()
         self.stdout.flush()
-        
+
 
 def get_all_file_with_extension_in_dir_recursively(dir_path, extension):
     import os
@@ -129,3 +135,29 @@ def get_all_file_with_extension_in_dir_recursively(dir_path, extension):
             if file.endswith(extension):
                 filepaths.append(os.path.join(root, file))
     return filepaths
+
+
+def prettify_str(_obj, text_width=180):
+    import textwrap
+    if isinstance(_obj, dict):
+        _obj = _obj.copy()
+        from tabulate import tabulate
+        # tabulate and prettify value
+        for k, v in _obj.items():
+            _obj[k] = prettify_str(v, text_width= text_width*0.8)
+        return tabulate(_obj.items(), tablefmt="fancy_grid")
+
+    elif isinstance(_obj, str):
+        # try:
+        #     # in case it is object in the form of string
+        #     _obj = str(eval(_obj))
+        # except:
+        #     pass
+        texts = ["\n".join(textwrap.wrap(s, width=text_width)) for s in _obj.split('\n')]
+        return "\n".join(texts)
+    elif isinstance(_obj, list):
+        _obj = _obj.copy()
+        return  '\n'.join([prettify_str(_obj_i) for _obj_i in _obj])
+    else:
+        raise Exception("not supported type for prettify")
+

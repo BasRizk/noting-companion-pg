@@ -9,7 +9,7 @@ from tabulate import tabulate
 #     CELL_EXECUTION_END = 'CELL_EXECUTION_END'
 #     TGM_QUESTION_ASKED = 'TGM_QUESTION_ASKED'
 #     TASK_WHAT_WHY_TIME = 'TASK_WHAT_WHY_TIME'
-    
+
 
 class LogEntry:
     def __init__(self, _id, entry_type, subject, user, context, notebook, session_type, timestamp, content=None, cell_type=None):
@@ -24,13 +24,13 @@ class LogEntry:
         self.timestamp_ms = self.convert_to_ms(timestamp)
         self.content = content
         self.cell_type = cell_type
-        
+
     def __str__(self):
         return f"{self.entry_type}::{self.subject}::{self.user}::{self.context}::{self.notebook}::{self.timestamp}::{self.content}::{self.cell_type}"
-    
+
     def __repr__(self):
         return self.__str__()
-    
+
     def get_formatted_content(self, width_of_tabulate=100):
         _content = self.content.split("\\n")
         # ensure each line of content is below the width of the table, otherwise split it into multiple lines
@@ -47,7 +47,7 @@ class LogEntry:
                 _flattened_content.append(line)
         _content = _flattened_content
         return _content
-    
+
     def print(self, width_of_tabulate=100, compact=True):
         _ptable = [
             ["Entry ID", self.id],
@@ -60,14 +60,14 @@ class LogEntry:
             # add line numbers
             for i, line in enumerate(_content):
                 _content[i] = f'{i+1} {line}'
-                    
+
             _ptable.append(["Content", _content[0]])
             for line in _content[1:]:
                 _ptable.append(["", line])
             _ptable.append(['# of lines', len(_content)])
             if self.cell_type:
                 _ptable.append(["Cell Type", self.cell_type])
-                
+
         if not compact:
             _ptable += [
                 ["Timestamp", self.timestamp],
@@ -79,11 +79,11 @@ class LogEntry:
             ]
         print(tabulate(_ptable, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center"))
         print()
-            
+
     def set_content(self, content, cell_type):
         self.content = content
         self.cell_type = cell_type
-        
+
     def convert_to_ms(self, timestamp):
         # Assuming that timestamps are in the format 'YYYY-MM-DDTHH:MM:SS.xxxxxx'
         try:
@@ -92,18 +92,18 @@ class LogEntry:
             return timestamp_ms
         except ValueError:
             return None
-        
+
 class LogParser:
     def __init__(self, filepath):
         self.filepath = filepath
         self.parse()
-        
+
     def __len__(self):
         return len(self.entries)
-    
-    def __getitem__(self, key):
-        return self.entries[key]
-    
+
+    def __getitem__(self, idx):
+        return self.entries[idx]
+
     def print(self, width_of_tabulate=100, compact=True):
         print('='*width_of_tabulate)
         print('filepath:', self.filepath)
@@ -135,13 +135,13 @@ class LogParser:
                     content = parts[7] if len(parts) >= 8 else None
                     cell_type = parts[8] if len(parts) >= 9 else None
                     entry.set_content(content, cell_type)
-                    
+
                     self.entries.append(entry)
                 else:
                     raise Exception(f"Invalid log entry: {line}")
         return self
-    
-    
+
+
     def find_first_entry_by_content(self, content):
         for entry in self.entries:
             if entry.content == content:
@@ -150,7 +150,7 @@ class LogParser:
 
     def get_only_entries_with_content(self):
         return [entry for entry in self.entries if entry.content is not None]
-    
+
     def get_only(self, **kwargs):
         filtered = self.entries
         for key, value in kwargs.items():
@@ -158,7 +158,7 @@ class LogParser:
                 value = [value]
             filtered = [entry for entry in filtered if getattr(entry, key) in value]
         return filtered
-    
+
     def get_filtered(self, **kwargs):
         filtered = self.entries
         for key, value in kwargs.items():
@@ -166,19 +166,19 @@ class LogParser:
                 value = [value]
             filtered = [entry for entry in filtered if getattr(entry, key) not in value]
         return filtered
-    
+
     def get_entry_types(self):
         return set([entry.entry_type for entry in self.entries])
-    
+
     def get_cell_types(self):
         return set([entry.cell_type for entry in self.entries if entry.cell_type is not None])
-    
+
     def get_users(self):
         return set([entry.user for entry in self.entries])
-    
+
     def get_notebooks(self):
         return set([entry.notebook for entry in self.entries])
-    
+
     def _keep_only_entries_by_filter(self, **kwargs):
         filtered = self.entries
         for key, value in kwargs.items():
@@ -187,7 +187,7 @@ class LogParser:
             filtered = [entry for entry in filtered if getattr(entry, key) in value]
         self.entries = filtered
         return self
-    
+
     def divide_per_notebook(self, notebooks_names=None):
         from copy import deepcopy
         if notebooks_names is None:
@@ -196,10 +196,10 @@ class LogParser:
         for notebook in notebooks_names:
             log_parsers[notebook] = deepcopy(self)._keep_only_entries_by_filter(notebook=notebook)
         return log_parsers
-    
+
     def is_one_notebook_log(self):
         return len(self.get_notebooks()) == 1
-    
+
     def is_continous_notebook_log(self, verbose=False):
         if not self.is_one_notebook_log():
             return False
@@ -230,15 +230,15 @@ class LogParser:
                 if entry_2.id - entry_1.id != 1:
                     return False
         return True
-    
-    # Verification if the logs include a broken session 
+
+    # Verification if the logs include a broken session
     # (meaning opened and closed then opened again after some time)
     def debug_noncontinous_logs(self, all_training_notebooks_filepathes=None):
 
         notebooks = self.get_notebooks()
         if all_training_notebooks_filepathes is not None:
             notebooks = notebooks.intersection(all_training_notebooks_filepathes)
-            
+
         for notebook in sorted(notebooks):
             print('='*20)
             print('Notebook:', notebook)
@@ -260,7 +260,7 @@ class LogParser:
                     print('='*20)
             if not broken_session:
                 print('All entries are consecutive')
-                
+
     def attach_notebooks(self,
         notebooks_dir, verbose=False,
         filter=lambda x: re.match(r'[A-Z]-subject-.+.ipynb', x),
@@ -269,8 +269,8 @@ class LogParser:
         import os
         from _utils import get_all_file_with_extension_in_dir_recursively
         from _nb_parser import NotebookParser
-        
-        if verbose: print(f'Filtering notebooks with filter: {filter.__name__}') 
+
+        if verbose: print(f'Filtering notebooks with filter: {filter.__name__}')
 
         nb_filepaths_dict = {
             os.path.basename(nb_filepath): nb_filepath
@@ -279,24 +279,24 @@ class LogParser:
             if filter(os.path.basename(nb_filepath))
         }
         print(f'\nThere are total {len(nb_filepaths_dict)} notebooks found in {notebooks_dir} directory')
-        
+
         linked_notebooks = self.get_notebooks()
-        found_related_notebooks = list(linked_notebooks.intersection(nb_filepaths_dict.keys()))
+        found_related_notebooks = sorted(list(linked_notebooks.intersection(nb_filepaths_dict.keys())))
         if verbose:
             print('Found Related notebooks:')
             for i, nb_filepath in enumerate(found_related_notebooks):
                 print(f"{i} {nb_filepath}")
-         
-        log_parser_per_notebook = self.divide_per_notebook(found_related_notebooks) 
-        
+
+        log_parser_per_notebook = self.divide_per_notebook(found_related_notebooks)
+
         log_parser_per_notebook = {
-            nb_filepath: (log_parser, NotebookParser(nb_filepaths_dict[nb_filepath]))
-            for nb_filepath, log_parser in log_parser_per_notebook.items()
+            nb_filepaths_dict[nb_filename]: (log_parser, NotebookParser(nb_filepaths_dict[nb_filename]))
+            for nb_filename, log_parser in log_parser_per_notebook.items()
         }
-        
-        num_notebooks = len(log_parser_per_notebook)   
+
+        num_notebooks = len(log_parser_per_notebook)
         print(f'There are {num_notebooks} notebooks with logs')
-        
+
         # filter only continous logs (i.e. logs sections on the same notebook)
         # log_parser_per_notebook = {
         #     nb_filepath: parser
@@ -308,5 +308,9 @@ class LogParser:
         #     print('Dropped non continous notebooks:')
         #     for nb_filepath in set(found_related_notebooks) - set(log_parser_per_notebook.keys()):
         #         print(nb_filepath)
-            
+
+
+        for i, (nb_filepath, (nb_log_parser, nb_parser)) in enumerate(log_parser_per_notebook.items()):
+            assert nb_filepath == nb_parser.filepath and nb_filepath != nb_log_parser.filepath
+
         return log_parser_per_notebook

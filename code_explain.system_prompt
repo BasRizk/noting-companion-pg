@@ -1,4 +1,4 @@
-You will be provided with Python notebook cells src and cell_type delimited by triple quotes. Your task is to explain what is needed to be implemented if any implementation is not completed or not proper yet. 
+You will be provided with Python notebook cells src and cell_type delimited by triple quotes. Your task is to explain what is needed to be implemented if any implementation is not completed or not proper yet.
 
 Ensure that each cell is explained independently while mentioning all relevant context needed to explain them in detail (Example of context is attachment and connection to previous cells), then give an overall summary of the whole notebook at the end. Provide output in JSON format as follows:
 
@@ -10,8 +10,9 @@ Ensure that each cell is explained independently while mentioning all relevant c
         "cell_explanation": "insert first cell explanation here",
         "relations_ids": list of closely connected cells ids,
         "relations": list of explanations of the relations,
+        "Done": True if this cell is complete and does not need to be implemented or modified, False otherwise.
     },
-    
+
     ...
 
     {
@@ -20,12 +21,14 @@ Ensure that each cell is explained independently while mentioning all relevant c
         "cell_explanation": "insert last cell explanation here",
         "relations_ids": list of closely connected cells ids,
         "relations": list of explanations of the relations,
+        "Done": True if this cell is complete and does not need to be implemented or modified, False otherwise.
     },
 
     {
         "summary": "insert a summary of the notebook",
         "key cells": list of ids of most critical cells
         "relations": "insert explanation of the relations among the key cells",
+        "Done": True if this notebook task is complete, False otherwise.
     }
 
 ]

@@ -1,17 +1,17 @@
 import os
 import time
 import json
-import uuid 
+import uuid
 import datetime
 from tqdm import tqdm
 from loguru import logger
 from utils import (
     chat_completions_with_backoff,
-    count_tokens_in_prompt_messages, 
+    count_tokens_in_prompt_messages,
     Tee,
     pprint_msg,
 )
-   
+
 
 def _is_todo_cell(cell):
     _first_line_split = cell['source'][0].lower().split('#')
@@ -19,7 +19,7 @@ def _is_todo_cell(cell):
         if _first_line_split[1].strip().startswith('todo'):
             return True
     return False
-        
+
 def remove_one_todo(cells, remove_type='code', direction='top', replace=None):
     _cells = cells if direction == 'top' else reversed(cells)
     for cell in _cells:
@@ -41,12 +41,12 @@ def remove_one_todo(cells, remove_type='code', direction='top', replace=None):
                 return _statement
             else:
                 raise Exception('remove_type must be either code or statement')
-            
+
     return None
 
-with open('code_explain_sys_msg.txt') as f:
+with open('code_explain.system_prompt') as f:
     sys_prompt = ''.join(f.readlines())
-        
+
 def prompt(
     cells,
     prev_messages=None,
@@ -61,9 +61,9 @@ def prompt(
     num_tokens = count_tokens_in_prompt_messages(_messages, model_name=model)
     logger.debug(f'num_tokens from prompt: {num_tokens}')
     if num_tokens > 16000:
-        logger.error('Too many tokens, splitting into multiple prompts')    
+        logger.error('Too many tokens, splitting into multiple prompts')
         breakpoint()
-    
+
     response = chat_completions_with_backoff(
         model=model,
         messages=_messages,
@@ -73,7 +73,7 @@ def prompt(
         frequency_penalty=0,
         presence_penalty=0,
     )
-    
+
     response_msg = response['choices'][0]['message']
     num_tokens_from_response = count_tokens_in_prompt_messages([response_msg], model_name=model)
     logger.debug(f'num_tokens from response: {num_tokens_from_response}')
@@ -85,16 +85,16 @@ def prompt(
 
 if __name__ == '__main__':
     import argparse
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--notebook_filepath', type=str, default='../knic-notebooks/MT/MT-S-1.ipynb')
     args = parser.parse_args()
-    
+
     notebook_filepath = args.notebook_filepath
     notebook_filename = os.path.basename(notebook_filepath)
     with open(notebook_filepath) as f:
         notebook = json.load(f)
-        
+
 
     unique_log_name = f'{notebook_filename}-{str(datetime.datetime.now())}-{str(uuid.uuid4())}'
     tee = Tee(f'{unique_log_name}.txt')
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         with tee:
             return __builtins__.print(*args, **kwargs)
 
-        
+
     prompt_cells = notebook['cells'].copy()
     todo_code_blocks = []
     while True:
@@ -121,7 +121,7 @@ if __name__ == '__main__':
         if cell.get('execution_count') is not None:
             del cell['execution_count']
         del cell['metadata']
-    
+
     # no code solved yet
     logger.info('Notebook step by step:')
     assistant_msgs = []
@@ -138,9 +138,9 @@ if __name__ == '__main__':
     logger.info('Notebook progression explanation:')
 
     assistant_combination = json.loads(assistant_msgs[0]['content'])
-    for i in range(len(assistant_combination)): 
+    for i in range(len(assistant_combination)):
         assistant_combination[i] = {'iteration_idx': [0], 'iterations_detail': [assistant_combination[i]]}
-        
+
     for i in range(1, len(assistant_msgs)):
         later_assistant_response = json.loads(assistant_msgs[i]['content'])
         for new_iter, past_iters in zip(later_assistant_response, assistant_combination):
@@ -151,10 +151,10 @@ if __name__ == '__main__':
             elif new_iter.get('summary'):
                 if new_iter['summary'] == past_iters['iterations_detail'][-1]['summary']:
                     continue
-                
+
             past_iters['iteration_idx'].append(i)
             past_iters['iterations_detail'].append(new_iter)
-        
+
     # save combination
     with open(f'{unique_log_name}-combination.json', 'w') as f:
         json.dump(assistant_combination, f, indent=4)
