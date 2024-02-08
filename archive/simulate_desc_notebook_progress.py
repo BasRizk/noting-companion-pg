@@ -5,7 +5,7 @@ import uuid
 import datetime
 from tqdm import tqdm
 from loguru import logger
-from utils import (
+from ..utils import (
     chat_completions_with_backoff,
     count_tokens_in_prompt_messages,
     Tee,

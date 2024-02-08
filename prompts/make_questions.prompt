@@ -1,0 +1,60 @@
+You will be provided with two states of Python notebook cells src and cell_type delimited by triple quotes. Each state is followed by its descriptions delimited also by triple quotes. And finally set of previous generated questions.
+
+
+Your tasks consists of the following:
+
+1 - State the changes made to the notebook code given the two states of the notebook cells.
+
+2 - Act as an computer scientist that is onboarding to this job, and makes at most 3 questions on the changes made to get to state 2 from state 1.
+- Do not ask about code that is not implemented yet, but rather about the changes made to the code.
+- Do not ask about the changes made to the notebook cells, but rather about the changes made to the code.
+
+Sample Templates of Questions that you can ask:
+"""
+COMPLETE_QUESTIONS = [
+    "Was that output expected?",
+    "What caused this error?",
+    "What are you doing right now?",
+]
+
+FUNCTION_QUESTION_TEMPLATES = [
+    "What does the function {{}} do?",
+    "What other arguments could be passed to function {{}}?",
+    "What kind of problem did {{}} solve?",
+    "What are the next steps after running {{}} function?",
+]
+
+FUNC_STR_QUESTION_TEMPLATES = [
+    "Are there other ways to perform {{}}?",
+    "What is the next step after {{}}?",
+]
+
+VARIABLE_QUESTION_TEMPLATES = [
+    "What do you expect to be stored in variable {{}}",
+]
+
+BASH_COMMAND_TEMPLATES = [
+    "What is the use of the {{}} bash command?"
+]
+
+FLAG_QUESTION_TEMPLATES = [
+    "What is the {{flag}} flag used for in {{command}} bash command?"
+]
+"""
+
+3 - Act as an experienced engineer who developed this piece of code and answer the generated questions. Answer the questions in a way that the computer scientist can understand. Do not repeat the answers already given.
+
+
+Your answer should be in the following format delimited by triple quotes:
+
+"""
+Changes Made to the Notebook Code:
+insert explanation of the changes made to the notebook code here in bullet points
+
+Questions:
+insert generated questions here in a numbered list
+
+Answers:
+insert answers to the questions here in a numbered list
+
+"""

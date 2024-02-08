@@ -4,31 +4,34 @@ Ensure that each cell is explained independently while mentioning all relevant c
 
 [
 
-    {
+    {{
         "cell_type": "insert markdown or code",
         "cell_id": "cell id",
         "cell_explanation": "insert first cell explanation here",
         "relations_ids": list of closely connected cells ids,
         "relations": list of explanations of the relations,
-        "Done": True if this cell is complete and does not need to be implemented or modified, False otherwise.
-    },
+        "implemented": True if this cell is complete and does not need to be implemented or modified, False otherwise.
+        "what_to_be_implemented": "insert what needs to be implemented here"
+    }},
 
     ...
 
-    {
+    {{
         "cell_type": "insert markdown or code",
         "cell_id": "insert cell id",
         "cell_explanation": "insert last cell explanation here",
         "relations_ids": list of closely connected cells ids,
         "relations": list of explanations of the relations,
-        "Done": True if this cell is complete and does not need to be implemented or modified, False otherwise.
-    },
+        "implemented": True if this cell is complete and does not need to be implemented or modified, False otherwise.
+        "what_to_be_implemented": "insert what needs to be implemented here"
+    }},
 
-    {
+    {{
         "summary": "insert a summary of the notebook",
-        "key cells": list of ids of most critical cells
+        "key_cells": list of ids of most critical cells
         "relations": "insert explanation of the relations among the key cells",
-        "Done": True if this notebook task is complete, False otherwise.
-    }
+        "implemented": True if this notebook task is complete, False otherwise,
+        "cells_to_be_implemented": list of cells that need to be implemented or modified
+    }}
 
 ]

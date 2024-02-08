@@ -1,0 +1,545 @@
+num_tokens from prompt: 670
+num_tokens from response: 685
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 0 Change @ 1:: 0:  insert
+╒════════════════╤══════════════════════════════════════════════════════════════════════════════════════╕
+│       Entry ID │ 441                                                                                  │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│     Entry Type │ CELL_EXECUTION_END                                                                   │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│ Timestamp (ms) │ 1690240621753                                                                        │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│        Content │ 1 src_lines = ["I would like to live in Berlin after I retire.",                     │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│                │ 2              "My friends and I plan to open a cheese shop.",                       │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│                │ 3              "We would also sell wine and beer if it proved profitable."]          │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│                │ 4 ref_lines = ["Ich m\xf6chte nach meiner Pensionierung in Berlin leben.",           │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│                │ 5              "Meine Freunde und ich planen, einen K\xe4seladen zu er\xf6ffnen.",   │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│                │ 6              "Wir w\xfcrden auch Wein und Bier verkaufen, wenn es sich rentiert."] │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│     # of lines │ 6                                                                                    │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+│      Cell Type │ code                                                                                 │
+╘════════════════╧══════════════════════════════════════════════════════════════════════════════════════╛
+
+None
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 0 Change 0 Response:
+====================================================================================================
+Assistant message:
+[
+    {
+        "cell_type": "markdown",
+        "cell_id": 0,
+        "cell_explanation": "This cell contains a simple markdown text that states 'Sample aligned data'. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 1,
+        "cell_explanation": "This cell contains two lists, `src_lines` and `ref_lines`, which represent the source and reference sentences respectively. These sentences are aligned, meaning that each sentence in `src_lines` corresponds to the same index sentence in `ref_lines`. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": [],
+        "content": [
+            "src_lines = [\"I would like to live in Berlin after I retire.\",",
+            "             \"My friends and I plan to open a cheese shop.\",",
+            "             \"We would also sell wine and beer if it proved profitable.\"]",
+            "ref_lines = [\"Ich m\\xf6chte nach meiner Pensionierung in Berlin leben.\",",
+            "             \"Meine Freunde und ich planen, einen K\\xe4seladen zu er\\xf6ffnen.\",",
+            "             \"Wir w\\xfcrden auch Wein und Bier verkaufen, wenn es sich rentiert.\"]"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 2,
+        "cell_explanation": "This cell contains a simple markdown text that states 'Set up the Facebook English-to-German MT model'. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 3,
+        "cell_explanation": "This cell is empty and does not contain any code. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 4,
+        "cell_explanation": "This cell contains a simple markdown text that states 'Translate English sentences into German'. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 5,
+        "cell_explanation": "This cell is empty and does not contain any code. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 6,
+        "cell_explanation": "This cell contains a simple markdown text that states 'Score translated sentences against reference sentences using BLEU'. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 7,
+        "cell_explanation": "This cell contains a code comment that instructs to change the MT evaluation measure to TER. The code comment also mentions 'CODE MT-R-6a.1', which suggests that there might be a code cell with the implementation of this change. The implementation of changing the MT evaluation measure to TER is missing in this cell and needs to be added.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "summary": "The notebook contains a sample aligned data of English and German sentences. It sets up the Facebook English-to-German MT model, translates English sentences into German, and scores the translated sentences against reference sentences using BLEU. There is a missing implementation in cell 7 where the MT evaluation measure needs to be changed to TER.",
+        "key cells": [
+            7
+        ],
+        "relations": "Cell 7 is related to the overall task of changing the MT evaluation measure to TER."
+    }
+]
+==================================================================================================== 
+
+num_tokens from prompt: 742
+num_tokens from response: 688
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 1 Change @ 3:: 0:  insert
+╒════════════════╤════════════════════════════════════════════════════════════════════════╕
+│       Entry ID │ 445                                                                    │
+├────────────────┼────────────────────────────────────────────────────────────────────────┤
+│     Entry Type │ CELL_EXECUTION_END                                                     │
+├────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ Timestamp (ms) │ 1690240643359                                                          │
+├────────────────┼────────────────────────────────────────────────────────────────────────┤
+│        Content │ 1 from transformers import FSMTForConditionalGeneration, FSMTTokenizer │
+├────────────────┼────────────────────────────────────────────────────────────────────────┤
+│                │ 2 model_name = "facebook/wmt19-en-de"                                  │
+├────────────────┼────────────────────────────────────────────────────────────────────────┤
+│                │ 3 tokenizer = FSMTTokenizer.from_pretrained(model_name)                │
+├────────────────┼────────────────────────────────────────────────────────────────────────┤
+│                │ 4 model = FSMTForConditionalGeneration.from_pretrained(model_name)     │
+├────────────────┼────────────────────────────────────────────────────────────────────────┤
+│     # of lines │ 4                                                                      │
+├────────────────┼────────────────────────────────────────────────────────────────────────┤
+│      Cell Type │ code                                                                   │
+╘════════════════╧════════════════════════════════════════════════════════════════════════╛
+
+None
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 1 Change 0 Response:
+====================================================================================================
+Assistant message:
+[
+    {
+        "cell_type": "markdown",
+        "cell_id": 0,
+        "cell_explanation": "This markdown cell provides a brief description of the data that will be used in the notebook.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 1,
+        "cell_explanation": "This code cell defines two lists, `src_lines` and `ref_lines`, which contain English and German sentences respectively. These sentences will be used for translation and evaluation.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 2,
+        "cell_explanation": "This markdown cell provides a description of the setup for the Facebook English-to-German MT model.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 3,
+        "cell_explanation": "This code cell imports the necessary classes from the `transformers` library and sets up the Facebook English-to-German MT model. The `model_name` variable specifies the model to be used, and the `tokenizer` and `model` variables are initialized with the appropriate values.",
+        "relations_ids": [],
+        "relations": [],
+        "content": [
+            "from transformers import FSMTForConditionalGeneration, FSMTTokenizer",
+            "model_name = \"facebook/wmt19-en-de\"",
+            "tokenizer = FSMTTokenizer.from_pretrained(model_name)",
+            "model = FSMTForConditionalGeneration.from_pretrained(model_name)"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 4,
+        "cell_explanation": "This markdown cell provides a description of the translation step.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 5,
+        "cell_explanation": "This code cell is empty and requires implementation. It is likely that this cell will contain code to translate the English sentences in `src_lines` to German using the Facebook English-to-German MT model.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 6,
+        "cell_explanation": "This markdown cell provides a description of the evaluation step.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 7,
+        "cell_explanation": "This code cell contains an instruction to change the MT evaluation measure to TER (Translation Edit Rate). However, the implementation of this change is missing and requires completion. The code `# CODE MT-R-6a.1` suggests that this cell is part of a larger codebase or notebook.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "summary": "The notebook involves translating English sentences to German using the Facebook English-to-German MT model and evaluating the translations using a specific evaluation measure. The notebook contains cells for data setup, model setup, translation, and evaluation. Two code cells, one for translation and one for changing the evaluation measure, require implementation.",
+        "key cells": [
+            5,
+            7
+        ],
+        "relations": "The translation step (cell 5) is dependent on the model setup (cell 3) and the data setup (cell 1). The evaluation step (cell 7) is dependent on the translation step (cell 5)."
+    }
+]
+==================================================================================================== 
+
+num_tokens from prompt: 814
+num_tokens from response: 751
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 2 Change @ 5:: 0:  insert
+╒════════════════╤══════════════════════════════════════════════════════════════════════════════╕
+│       Entry ID │ 449                                                                          │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│     Entry Type │ CELL_EXECUTION_END                                                           │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│ Timestamp (ms) │ 1690240649377                                                                │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│        Content │ 1 decoded = []                                                               │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│                │ 2 for src_line in src_lines:                                                 │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│                │ 3     input_ids = tokenizer.encode(src_line, return_tensors="pt")            │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│                │ 4     outputs = model.generate(input_ids, max_new_tokens=200)                │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│                │ 5     decoded.append(tokenizer.decode(outputs[0], skip_special_tokens=True)) │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│     # of lines │ 5                                                                            │
+├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+│      Cell Type │ code                                                                         │
+╘════════════════╧══════════════════════════════════════════════════════════════════════════════╛
+
+None
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 2 Change 0 Response:
+====================================================================================================
+Assistant message:
+[
+    {
+        "cell_type": "markdown",
+        "cell_id": 0,
+        "cell_explanation": "This cell contains a simple markdown text that states 'Sample aligned data'. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 1,
+        "cell_explanation": "This cell contains the source and reference sentences for translation. The source sentences are in English and the reference sentences are in German. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 2,
+        "cell_explanation": "This cell contains a markdown text that states 'Set up the Facebook English-to-German MT model'. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 3,
+        "cell_explanation": "This cell sets up the Facebook English-to-German MT model. It imports the necessary classes from the transformers library, specifies the model name as 'facebook/wmt19-en-de', and initializes the tokenizer and model using the specified model name. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 4,
+        "cell_explanation": "This cell contains a markdown text that states 'Translate English sentences into German'. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 5,
+        "cell_explanation": "This cell translates the English sentences into German using the Facebook English-to-German MT model. It iterates over each source sentence, encodes it using the tokenizer, generates the translation using the model, and decodes the output tokens to obtain the translated sentence. The translated sentences are stored in the 'decoded' list. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": [],
+        "content": [
+            "decoded = []",
+            "for src_line in src_lines:",
+            "    input_ids = tokenizer.encode(src_line, return_tensors=\"pt\")",
+            "    outputs = model.generate(input_ids, max_new_tokens=200)",
+            "    decoded.append(tokenizer.decode(outputs[0], skip_special_tokens=True))"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 6,
+        "cell_explanation": "This cell contains a markdown text that states 'Score translated sentences against reference sentences using BLEU'. There is no implementation needed in this cell.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 7,
+        "cell_explanation": "This cell is incomplete and requires implementation. The instruction states to change the MT evaluation measure to TER (Translation Edit Rate), but there is no code provided to perform this change. The code comment 'CODE MT-R-6a.1' suggests that the code for changing the evaluation measure should be added here.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "summary": "The notebook performs English-to-German translation using the Facebook English-to-German MT model. It translates a set of English sentences into German and then scores the translated sentences against reference sentences using the BLEU evaluation measure. However, there is a missing implementation in cell 7 where the instruction is to change the MT evaluation measure to TER (Translation Edit Rate).",
+        "key cells": [
+            7
+        ],
+        "relations": "Cell 7 is the only key cell as it requires implementation to change the MT evaluation measure to TER."
+    }
+]
+==================================================================================================== 
+
+num_tokens from prompt: 858
+num_tokens from response: 623
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 3 Change @ 7:: 0:  insert
+╒════════════════╤══════════════════════════════════════════════════════╕
+│       Entry ID │ 455                                                  │
+├────────────────┼──────────────────────────────────────────────────────┤
+│     Entry Type │ CELL_EXECUTION_END                                   │
+├────────────────┼──────────────────────────────────────────────────────┤
+│ Timestamp (ms) │ 1690240661096                                        │
+├────────────────┼──────────────────────────────────────────────────────┤
+│        Content │ 1 # INSTRUCTION: Change MT evaluation measure to TER │
+├────────────────┼──────────────────────────────────────────────────────┤
+│                │ 2 # CODE MT-R-6a.1                                   │
+├────────────────┼──────────────────────────────────────────────────────┤
+│                │ 3 import sacrebleu                                   │
+├────────────────┼──────────────────────────────────────────────────────┤
+│                │ 4 bleu = sacrebleu.metrics.TER()                     │
+├────────────────┼──────────────────────────────────────────────────────┤
+│                │ 5 print(bleu.corpus_score(decoded, [ref_lines]))     │
+├────────────────┼──────────────────────────────────────────────────────┤
+│     # of lines │ 5                                                    │
+├────────────────┼──────────────────────────────────────────────────────┤
+│      Cell Type │ code                                                 │
+╘════════════════╧══════════════════════════════════════════════════════╛
+
+None
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 3 Change 0 Response:
+====================================================================================================
+Assistant message:
+[
+    {
+        "cell_type": "markdown",
+        "cell_id": 0,
+        "cell_explanation": "This cell contains a simple markdown text that indicates the presence of aligned data.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 1,
+        "cell_explanation": "This cell contains the source and reference sentences that will be used for translation.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 2,
+        "cell_explanation": "This cell contains a markdown text that explains the setup of the Facebook English-to-German MT model.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 3,
+        "cell_explanation": "This cell sets up the Facebook English-to-German MT model by importing the necessary libraries, specifying the model name, and loading the tokenizer and model.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 4,
+        "cell_explanation": "This cell contains a markdown text that explains the translation process.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 5,
+        "cell_explanation": "This cell translates the English sentences into German using the loaded model. It iterates over each source sentence, encodes it using the tokenizer, generates the translation using the model, and decodes the output tokens to obtain the translated sentence.",
+        "relations_ids": [
+            3
+        ],
+        "relations": [
+            "The loaded tokenizer and model are used for encoding and generating translations."
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 6,
+        "cell_explanation": "This cell contains a markdown text that explains the scoring process using BLEU.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 7,
+        "cell_explanation": "This cell calculates the translation error rate (TER) score by using the sacrebleu library. It initializes the TER metric, computes the score by comparing the decoded translations with the reference lines, and prints the corpus score.",
+        "relations_ids": [
+            5
+        ],
+        "relations": [
+            "The decoded translations are used as the hypothesis and the reference lines are used as the ground truth for calculating the TER score."
+        ],
+        "content": [
+            "# INSTRUCTION: Change MT evaluation measure to TER",
+            "# CODE MT-R-6a.1",
+            "import sacrebleu",
+            "bleu = sacrebleu.metrics.TER()",
+            "print(bleu.corpus_score(decoded, [ref_lines]))"
+        ]
+    },
+    {
+        "summary": "The notebook performs English-to-German translation using the Facebook MT model and evaluates the translations using the TER metric.",
+        "key cells": [
+            3,
+            5,
+            7
+        ],
+        "relations": "The key cells are closely related as they involve setting up the MT model, translating sentences, and evaluating the translations using the TER metric."
+    }
+]
+==================================================================================================== 
+
+num_tokens from prompt: 859
+num_tokens from response: 614
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 3 Change @ 7:: 1:  update
+╒════════════════╤══════════════════════════════════════════════════════╕
+│       Entry ID │ 452                                                  │
+├────────────────┼──────────────────────────────────────────────────────┤
+│     Entry Type │ CELL_EXECUTION_END                                   │
+├────────────────┼──────────────────────────────────────────────────────┤
+│ Timestamp (ms) │ 1690240654684                                        │
+├────────────────┼──────────────────────────────────────────────────────┤
+│        Content │ 1 # INSTRUCTION: Change MT evaluation measure to TER │
+├────────────────┼──────────────────────────────────────────────────────┤
+│                │ 2 # CODE MT-R-6a.1                                   │
+├────────────────┼──────────────────────────────────────────────────────┤
+│                │ 3 import sacrebleu                                   │
+├────────────────┼──────────────────────────────────────────────────────┤
+│                │ 4 bleu = sacrebleu.metrics.BLEU()                    │
+├────────────────┼──────────────────────────────────────────────────────┤
+│                │ 5 print(bleu.corpus_score(decoded, [ref_lines]))     │
+├────────────────┼──────────────────────────────────────────────────────┤
+│     # of lines │ 5                                                    │
+├────────────────┼──────────────────────────────────────────────────────┤
+│      Cell Type │ code                                                 │
+╘════════════════╧══════════════════════════════════════════════════════╛
+
+None
+><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+Step 3 Change 1 Response:
+====================================================================================================
+Assistant message:
+[
+    {
+        "cell_type": "markdown",
+        "cell_id": 0,
+        "cell_explanation": "This cell contains a simple markdown text that indicates the presence of aligned data.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 1,
+        "cell_explanation": "This cell contains the source and reference sentences that will be used for translation.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 2,
+        "cell_explanation": "This cell contains a markdown text that explains the setup of the Facebook English-to-German MT model.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 3,
+        "cell_explanation": "This cell sets up the Facebook English-to-German MT model by importing the necessary libraries, specifying the model name, and loading the tokenizer and model.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 4,
+        "cell_explanation": "This cell contains a markdown text that explains the translation process.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 5,
+        "cell_explanation": "This cell translates the English sentences into German using the loaded model and tokenizer. It iterates over each source sentence, encodes it using the tokenizer, generates the translation using the model, and decodes the output tokens to obtain the translated sentence.",
+        "relations_ids": [
+            3
+        ],
+        "relations": [
+            "The loaded model and tokenizer are used for translation."
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "cell_id": 6,
+        "cell_explanation": "This cell contains a markdown text that explains the scoring process using BLEU.",
+        "relations_ids": [],
+        "relations": []
+    },
+    {
+        "cell_type": "code",
+        "cell_id": 7,
+        "cell_explanation": "This cell calculates the BLEU score of the translated sentences against the reference sentences. It imports the `sacrebleu` library, creates a BLEU object, and computes the corpus-level BLEU score by passing the decoded translations and reference sentences to the `corpus_score` method.",
+        "relations_ids": [
+            5
+        ],
+        "relations": [
+            "The translated sentences are used as input for scoring."
+        ],
+        "content": [
+            "# INSTRUCTION: Change MT evaluation measure to TER",
+            "# CODE MT-R-6a.1",
+            "import sacrebleu",
+            "bleu = sacrebleu.metrics.BLEU()",
+            "print(bleu.corpus_score(decoded, [ref_lines]))"
+        ]
+    },
+    {
+        "summary": "The notebook performs English-to-German translation using the Facebook English-to-German MT model and evaluates the translations using the BLEU score.",
+        "key cells": [
+            5,
+            7
+        ],
+        "relations": "The translations generated in cell 5 are used as input for scoring in cell 7."
+    }
+]
+==================================================================================================== 
+

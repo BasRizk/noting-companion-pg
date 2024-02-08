@@ -1,6 +1,8 @@
 import json
 from copy import deepcopy
 from tabulate import tabulate
+from textwrap import wrap
+
 
 class CellEntry:
     def __init__(self, cell_type, cell_id, source, execution_count=None, outputs=None, metadata=None):
@@ -61,6 +63,8 @@ class CellEntry:
         else:
             return False
 
+
+
 class NotebookParser:
     def __init__(self, notebook_filepath):
         self.filepath = notebook_filepath
@@ -69,9 +73,36 @@ class NotebookParser:
         self.parse()
 
     def __str__(self):
-        return json.dumps(
-            self.get_cells(json=True, compact=True), indent=4
-        )
+        # nb_json = json.dumps(
+        #     self.get_cells(json=True, compact=True), indent=4
+        # )
+        table = []
+        for cell in self.get_cells(json=False):
+            table += self.tabulate_cell(cell, call_tabulate=False)
+            table.append(['', ''])
+        nb_json = tabulate(table, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center")
+        return f'Notebook: {self.filepath}\n{nb_json}'
+
+    @classmethod
+    def tabulate_cell(cls, cell, text_width=60, call_tabulate=True):
+        table = []
+        table += [
+            ["Cell ID/TYPE", f'{cell.cell_id} - {cell.cell_type}'],
+        ]
+        code_wrapped = [wrap(line, width=text_width) for line in cell.source]
+        for line_num, line in enumerate(code_wrapped):
+            for split_num, line_wrap_split in enumerate(line):
+                if len(line) > 1:
+                    line_id_str = f'Line {line_num + 1}.{split_num + 1}'
+                else:
+                    line_id_str = f'Line {line_num + 1}'
+                table.append([line_id_str, line_wrap_split])
+
+
+        if call_tabulate:
+            return tabulate(table, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center")
+        else:
+            return table
 
     def __repr__(self):
         return self.__str__()
@@ -113,6 +144,8 @@ class NotebookParser:
             _self = deepcopy(self)
         else:
             _self = self
+        if log_entry.content is None: # NULL log entry
+            return _self
         _self.cell_entries[cell_id].source = log_entry.content.split('\\n')
         return _self
 
@@ -174,6 +207,9 @@ class NotebookParser:
 
     def __getitem__(self, key):
         return self.cell_entries[key]
+
+    def __iter__(self):
+        return iter(self.cell_entries)
 
     # def remove_answer_key(self):
     #     # Remove answer key

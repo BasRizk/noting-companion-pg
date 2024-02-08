@@ -267,8 +267,8 @@ class LogParser:
         # filter=lambda x: x.startswith('X-subject')
     ):
         import os
-        from _utils import get_all_file_with_extension_in_dir_recursively
-        from _nb_parser import NotebookParser
+        from utils import get_all_file_with_extension_in_dir_recursively
+        from parsers.nb_parser import NotebookParser
 
         if verbose: print(f'Filtering notebooks with filter: {filter.__name__}')
 
