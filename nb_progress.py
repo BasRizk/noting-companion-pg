@@ -1,7 +1,7 @@
 import textwrap
 from parsers.nb_parser import NotebookParser
 from parsers.log_parser import LogParser, LogEntry
-from loguru import logger
+from utils import logger
 
 class NBStep:
     def __init__(self,

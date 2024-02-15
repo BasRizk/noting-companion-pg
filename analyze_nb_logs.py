@@ -1,35 +1,37 @@
-
 import os
 import sys
 import json
 import openai
+from tabulate import tabulate
+from nb_progress import NBStep
+from parsers.nb_parser import CellEntry
 from parsers.log_parser import LogParser
 from nb_progress import get_notebook_progress, NotebookParser, InvalidLogError
 from utils import (
-    construct_code_explain_prompt,
-    construct_make_questions_prompt,
-    call_llm,
-    pprint_assistant_msg,
     get_all_file_with_extension_in_dir_recursively,
-    Tee, prettify_str,
+    prettify_str,
     logger
 )
+from prompts.code_explain import code_explain_prompt
+from prompts.generate_questions import make_questions_prompt
 
-def generate_questions(applied_changes_nb_states, assistant_msgs, prev_generated_questions):
+def generate_questions(applied_changes_nb_states, explanations, prev_generated_questions):
     generated_questions = []
     for i in range(len(applied_changes_nb_states)-1):
         print('><'*50)
         nb_state_i = applied_changes_nb_states[i]
         nb_state_i_plus_1 = applied_changes_nb_states[i+1]
-        assistant_msg_i = assistant_msgs[i]
-        assistant_msg_i_plus_1 = assistant_msgs[i+1]
-        prompt = construct_make_questions_prompt(
-            nb_state_i, nb_state_i_plus_1,
-            assistant_msg_i, assistant_msg_i_plus_1,
-            prev_generated_questions + generated_questions
+        explanation_i = explanations[i]
+        explanation_i_plus_1 = explanations[i+1]
+        generated_questions.append(
+            make_questions_prompt(
+                nb_state_i, nb_state_i_plus_1,
+                explanation_i, explanation_i_plus_1,
+                prev_generated_questions + generated_questions
+            )
         )
-        logger.trace(f'Generate Questions Prompt messages:\n{prettify_str(prompt)}')
-        generated_questions.append(call_llm(prompt))
+        # logger.trace(f'Generate Questions Prompt messages:\n{prettify_str(prompt)}')
+        # generated_questions.append(call_llm(prompt))
         logger.trace(f'Generated Questions:\n {prettify_str(generated_questions[-1])}')
         print('><'*50)
 
@@ -48,6 +50,10 @@ if __name__ == "__main__":
     # set logger to trace to see all logs
     logger.remove()
     logger.add(sys.stderr, level="TRACE")
+    import uuid
+    logger_id = str(uuid.uuid4())
+    logger.add(f'logs/analyze_nb_logs_{logger_id}.log', level="TRACE")
+    logger.info(f'Logger ID: {logger_id}')
 
     all_log_filepathes = get_all_file_with_extension_in_dir_recursively(args.logs_dir, ".log")
     all_log_filepathes.sort()
@@ -76,44 +82,34 @@ if __name__ == "__main__":
         f'\nLog parser per these notebooks:\n{log_parser_per_notebook.keys()}'
     )
 
-    from nb_progress import NBStep
 
-    def print_aligned_msg_nb_cells(assistant_msg, step: NBStep, change_i: int, nb_parser_with_change_applied: NotebookParser):
-        role, content = assistant_msg
-        # content = content.copy()
-        try:
-            content = json.loads(content)
-        except:
-            try:
-                content = eval(content)
-            except:
-                print('Could not parse content')
-                breakpoint()
-            # except:
-            #     content = assistant_msg['content']
+    def tabulate_aligned_msg_nb_cells(explanation, step: NBStep, change_i: int, nb_parser_with_change_applied: NotebookParser):
+        from copy import deepcopy
+        nb_cells_explanation = deepcopy(explanation['cells'])
+        nb_summary = explanation['summary']
 
-        # nb_parser_with_change_applied
 
-        if change_i is not None:
-            content[step.cell_id]['content'] = step.entries[change_i].get_formatted_content()
-            content[step.cell_id]['action'] = step.get_change_type(change_i)
+        # if change_i is not None:
+        #     nb_cells_explanation[step.cell_id]['content'] = step.entries[change_i].get_formatted_content()
+        #     nb_cells_explanation[step.cell_id]['action'] = step.get_change_type(change_i)
 
-        from tabulate import tabulate
 
         table = [[
             'Cell ID', 'Assitant Msg', 'NB Cell'
         ]]
-        for explanation_per_cell, nb_cell in zip(content, nb_parser_with_change_applied):
+        for explanation_per_cell, nb_cell in zip(nb_cells_explanation, nb_parser_with_change_applied):
+            nb_cell: CellEntry
             table.append([
                 explanation_per_cell['cell_id'],
                 prettify_str(explanation_per_cell, text_width=30),
-                NotebookParser.tabulate_cell(nb_cell, text_width=50, call_tabulate=True),
+                nb_cell.tabulate(text_width=50)
             ])
 
         table.append(['', '', ''])
-        table.append(['Summary', prettify_str(content[-1], text_width=30)])
+        table.append(['Summary', prettify_str(nb_summary, text_width=30)])
 
-        print(tabulate(table, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center"))
+        return tabulate(table, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center")
+
 
     def perform_explain_change_on_nb_parser(
         nb_parser_with_change_applied: NotebookParser,
@@ -124,26 +120,24 @@ if __name__ == "__main__":
     ):
         # Use default prompt -- will be appended automatically by code_explain_prompt
         prev_msgs = []
-        for prev_change, prev_response in zip(applied_changes_nb_states, assistant_msgs):
+        for prev_change, prev_response in zip(applied_changes_nb_states, explanations):
             prev_msgs.append({ "role": "user", "content": str(prev_change)})
             prev_msgs.append(prev_response)
 
         print('><'*50)
         if change_i is None:
-            logger.debug(f'NB Step {step_i} @ {step.cell_id}, No Change')
+            logger.warning(f'NB Step {step_i} @ {step.cell_id}, No Change.')
         else:
-            logger.debug(f'NB Step {step_i} Change({change_i}) {step.get_change_type(change_i)} @ {step.cell_id}, Change Definition:')
-            print(step.entries[change_i].print())
+            logger.debug(f'NB Step {step_i} Change({change_i}) {step.get_change_type(change_i)} @ {step.cell_id}, '
+                         f'Change Definition:\n{step.entries[change_i].tabulate()}')
         print('><'*50)
 
         while True:
             try:
                 if args.append_prev_msgs:
-                    prompt = construct_code_explain_prompt(nb_parser_with_change_applied, prev_messages=prev_msgs)
+                    explanation = code_explain_prompt(nb_parser_with_change_applied, prev_messages=prev_msgs)
                 else:
-                    prompt = construct_code_explain_prompt(nb_parser_with_change_applied)
-                logger.trace(f'Code Explain Prompt messages:\n{prettify_str(prompt)}')
-                assistant_msg = call_llm(prompt)
+                    explanation = code_explain_prompt(nb_parser_with_change_applied)
                 break
             except openai.BadRequestError as e:
                 if len(prev_msgs) > 0:
@@ -153,14 +147,14 @@ if __name__ == "__main__":
                     raise e
 
         applied_changes_nb_states.append(nb_parser_with_change_applied)
+        table = tabulate_aligned_msg_nb_cells(explanation, step, change_i, nb_parser_with_change_applied)
 
         if change_i is None:
-            print(f'NB Step {step_i} (Starter Code - No Change) Response:')
+            logger.info(f'NB Step {step_i} (Starter Code - No Change) Response:\n{table}')
         else:
-            print(f'NB Step {step_i} Change({change_i}) Response:')
+            logger.info(f'NB Step {step_i} Change({change_i}) Response:\n {table}')
 
-        print_aligned_msg_nb_cells(assistant_msg, step, change_i, nb_parser_with_change_applied)
-        return assistant_msg
+        return explanation
 
 
 
@@ -177,23 +171,19 @@ if __name__ == "__main__":
 
         nb_parser_filename = os.path.basename(nb_parser.filepath)
         nb_log_parser_filename = os.path.basename(nb_log_parser.filepath)
-        tee = Tee(f'{nb_parser_filename}_{nb_log_parser_filename}.description_sequence')
-        def print(*args, **kwargs):
-            with tee:
-                return __builtins__.print(*args, **kwargs)
 
-        print(f'Notebook: {nb_parser.filepath}')
-        print(f'Log: {nb_log_parser.filepath}')
-        print(f'Number of progress steps: {len(nb_progress)}')
-        print(f'Number of progress steps unrolled: {sum([len(step) for step in nb_progress])}')
+        logger.info(f'Notebook: {nb_parser.filepath}')
+        logger.info(f'Log: {nb_log_parser.filepath}')
+        logger.info(f'Number of progress steps: {len(nb_progress)}')
+        logger.info(f'Number of progress steps unrolled: {sum([len(step) for step in nb_progress])}')
 
-        assistant_msgs = []
+        explanations = []
         applied_changes_nb_states = []
         generated_questions = []
         for step_i, step in enumerate(nb_progress):
             step.reset()
             if len(step) == 0:
-                assistant_msgs.append(
+                explanations.append(
                     perform_explain_change_on_nb_parser(
                         nb_parser,
                         step,
@@ -204,32 +194,37 @@ if __name__ == "__main__":
             else:
                 # prev_msgs = [] # TODO should I reset prev_msgs upon each completed step?
                 for change_i, nb_parser_with_change_applied in enumerate(step):
-                    assistant_msgs.append(
+                    explanations.append(
                         perform_explain_change_on_nb_parser(
                             nb_parser_with_change_applied,
                             step,
                             step_i,
                             applied_changes_nb_states,
-                            change_i
+                            change_i=change_i
                         )
                     )
 
-            if len(assistant_msgs) >= 2:
-                _questions = generate_questions(applied_changes_nb_states[-2:], assistant_msgs[-2:], prev_generated_questions=generated_questions)
+            if len(explanations) >= 2:
+                _questions = generate_questions(
+                    applied_changes_nb_states[-2:], explanations[-2:],
+                    prev_generated_questions=generated_questions
+                )
                 assert len(_questions) == 1, f'Expected 1 question, got {_questions}'
                 generated_questions.append(_questions[0])
 
-        logger.success(f'Final notebook state:')
-        print(nb_parser)
-        # print(f'Final log state:')
-        # print(nb_log_parser)
-        logger.success(f'Final assistant msgs:')
-        for assistant_msg in assistant_msgs:
-            pprint_assistant_msg(assistant_msg)
+        # TODO print differences rather than just the change
+        changes_definitions = []
+        for step in nb_progress:
+            for change_i in range(len(step.entries)):
+                entry_table = step.entries[change_i].tabulate()
+                changes_definitions.append(entry_table)
 
+        logger.success(f'All steps completed for {nb_parser.filepath} with {len(nb_progress)} steps getting {len(generated_questions)} sets of questions')
+        for i, (change_questions, change_definition) in enumerate(zip(generated_questions, changes_definitions)):
+            logger.success(
+                f'@ Change {i}:\n {change_definition}\n Questions: \n{prettify_str(change_questions)}'
+            )
         # if input('Continue? (y/n)') == 'n':
         #     break
         breakpoint()
-
-        # generate_questions(applied_changes_nb_states, assistant_msgs)
 

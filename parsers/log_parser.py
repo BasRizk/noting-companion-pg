@@ -31,13 +31,13 @@ class LogEntry:
     def __repr__(self):
         return self.__str__()
 
-    def get_formatted_content(self, width_of_tabulate=100):
+    def get_formatted_content(self, text_width=100):
         _content = self.content.split("\\n")
         # ensure each line of content is below the width of the table, otherwise split it into multiple lines
         for i, line in enumerate(_content):
-            if len(line) > width_of_tabulate:
+            if len(line) > text_width:
                 # split line over more than one line
-                _content[i] = [line[j:j+width_of_tabulate] for j in range(0, len(line), width_of_tabulate)]
+                _content[i] = [line[j:j+text_width] for j in range(0, len(line), text_width)]
         # flatten nested lists only if there are any
         _flattened_content = []
         for line in _content:
@@ -48,7 +48,7 @@ class LogEntry:
         _content = _flattened_content
         return _content
 
-    def print(self, width_of_tabulate=100, compact=True):
+    def tabulate(self, text_width=100, compact=True):
         _ptable = [
             ["Entry ID", self.id],
             ["Entry Type", self.entry_type],
@@ -56,7 +56,7 @@ class LogEntry:
         ]
         if self.content:
 
-            _content = self.get_formatted_content(width_of_tabulate)
+            _content = self.get_formatted_content(text_width)
             # add line numbers
             for i, line in enumerate(_content):
                 _content[i] = f'{i+1} {line}'
@@ -77,8 +77,8 @@ class LogEntry:
                 ["Notebook", self.notebook],
                 ["Session Type", self.session_type]
             ]
-        print(tabulate(_ptable, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center"))
-        print()
+
+        return tabulate(_ptable, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center")
 
     def set_content(self, content, cell_type):
         self.content = content
@@ -104,18 +104,18 @@ class LogParser:
     def __getitem__(self, idx):
         return self.entries[idx]
 
-    def print(self, width_of_tabulate=100, compact=True):
-        print('='*width_of_tabulate)
-        print('filepath:', self.filepath)
-        print('# of entries:', len(self.entries))
-        print('Notebooks:', self.get_notebooks())
-        print('Entry types:', self.get_entry_types())
-        print('Cell types:', self.get_cell_types())
-        print('Users:', self.get_users())
-        print('='*width_of_tabulate)
-        for entry in self.entries:
-            entry.print(width_of_tabulate=width_of_tabulate, compact=compact)
-        print('='*width_of_tabulate)
+    # def print(self, text_width=100, compact=True):
+    #     print('='*text_width)
+    #     print('filepath:', self.filepath)
+    #     print('# of entries:', len(self.entries))
+    #     print('Notebooks:', self.get_notebooks())
+    #     print('Entry types:', self.get_entry_types())
+    #     print('Cell types:', self.get_cell_types())
+    #     print('Users:', self.get_users())
+    #     print('='*text_width)
+    #     for entry in self.entries:
+    #         entry.print(text_width=text_width, compact=compact)
+    #     print('='*text_width)
 
 
     def parse(self):

@@ -23,21 +23,33 @@ class CellEntry:
     def __repr__(self):
         return self.__str__()
 
-    def print(self, width_of_tabulate=100, compact=True):
-        _ptable = [
-            ["Cell Type", self.cell_type],
-            ["Cell ID", self.cell_id],
-            ["Source", self.source]
+    def tabulate(self, text_width=100, compact=True, raw_table=False):
+        table = []
+        table += [
+            ["Cell ID/TYPE", f'{self.cell_id} - {self.cell_type}'],
         ]
+        code_wrapped = [wrap(line, width=text_width) for line in self.source]
+        for line_num, line in enumerate(code_wrapped):
+            for split_num, line_wrap_split in enumerate(line):
+                if len(line) > 1:
+                    line_id_str = f'Line {line_num + 1}.{split_num + 1}'
+                else:
+                    line_id_str = f'Line {line_num + 1}'
+                table.append([line_id_str, line_wrap_split])
+
         if not compact:
             if self.execution_count:
-                _ptable.append(["Execution Count", self.execution_count])
+                table.append(["Execution Count", self.execution_count])
             if self.outputs:
-                _ptable.append(["Outputs", self.outputs])
+                table.append(["Outputs", self.outputs])
             if self.metadata:
-                _ptable.append(["Metadata", self.metadata])
-        print(tabulate(_ptable, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center", width=width_of_tabulate))
-        print()
+                table.append(["Metadata", self.metadata])
+
+        if raw_table:
+            return table
+        else:
+            return tabulate(table, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center")
+
 
     def get_json(self, compact=True):
         json_data = {
@@ -73,36 +85,18 @@ class NotebookParser:
         self.parse()
 
     def __str__(self):
-        # nb_json = json.dumps(
-        #     self.get_cells(json=True, compact=True), indent=4
-        # )
+        return json.dumps(
+            self.get_cells(json=True, compact=True), indent=4
+        )
+
+    def tabulate(self, text_width=100):
         table = []
         for cell in self.get_cells(json=False):
-            table += self.tabulate_cell(cell, call_tabulate=False)
+            table += cell.tabulate(raw_table=True, text_width=text_width)
             table.append(['', ''])
         nb_json = tabulate(table, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center")
         return f'Notebook: {self.filepath}\n{nb_json}'
 
-    @classmethod
-    def tabulate_cell(cls, cell, text_width=60, call_tabulate=True):
-        table = []
-        table += [
-            ["Cell ID/TYPE", f'{cell.cell_id} - {cell.cell_type}'],
-        ]
-        code_wrapped = [wrap(line, width=text_width) for line in cell.source]
-        for line_num, line in enumerate(code_wrapped):
-            for split_num, line_wrap_split in enumerate(line):
-                if len(line) > 1:
-                    line_id_str = f'Line {line_num + 1}.{split_num + 1}'
-                else:
-                    line_id_str = f'Line {line_num + 1}'
-                table.append([line_id_str, line_wrap_split])
-
-
-        if call_tabulate:
-            return tabulate(table, tablefmt="fancy_grid", colalign=("right", "left"), stralign="center", numalign="center")
-        else:
-            return table
 
     def __repr__(self):
         return self.__str__()
