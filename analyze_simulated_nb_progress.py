@@ -1,7 +1,6 @@
 import os
 import sys
-from parsers.log_parser import LogParser
-from nb_progress import get_notebook_progress_using_log, InvalidLogError
+from nb_progress import get_notebook_progress_simulate, NotebookParser, InvalidLogError
 from utils import (
     get_all_file_with_extension_in_dir_recursively,
     prettify_str,
@@ -9,14 +8,14 @@ from utils import (
 )
 from common import generate_questions, perform_explain_change_on_nb_parser
 
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--notebooks_dir', type=str, default='data/tac_notebooks')
-    parser.add_argument('--logs_dir', type=str, default='data/tac_raw_logs')
-    # parser.add_argument('--log_filepath', type=str, default=None)
-    # parser.add_argument('--nb_filepath', type=str, default=None)
     parser.add_argument('--append_prev_msgs', action='store_true', default=False)
+    parser.add_argument('--keep_code_header_comments', action='store_true', default=False)
     args = parser.parse_args()
 
     # set logger to trace to see all logs
@@ -27,50 +26,40 @@ if __name__ == "__main__":
     logger.add(f'logs/analyze_nb_logs_{logger_id}.log', level="TRACE")
     logger.info(f'Logger ID: {logger_id}')
 
-    all_log_filepathes = get_all_file_with_extension_in_dir_recursively(args.logs_dir, ".log")
-    all_log_filepathes.sort()
-    # skip files containing baseline
-    all_log_filepathes = [log_filepath for log_filepath in all_log_filepathes if "baseline" not in log_filepath]
-    logger.success(f'There are {len(all_log_filepathes)} log files in {args.logs_dir} directory')
-
-    if len(all_log_filepathes) == 0:
-        raise Exception(f'No log files found in {args.logs_dir} directory')
-    if len(all_log_filepathes) > 1:
-        _indexed_log_filepathes = list(enumerate(all_log_filepathes))
-        _input = input(f'More than one log files found in {args.logs_dir} directory. Press Enter to continue, or Pick index from 0 to {len(all_log_filepathes)-1} to select log file of the following list:\n{_indexed_log_filepathes}\n')
-        if _input:
-            selected_log_filepath = all_log_filepathes[int(_input)]
-        else:
-            selected_log_filepath = all_log_filepathes[0]
 
 
-    selected_log_filepath = all_log_filepathes[1]
-    log_parser = LogParser(selected_log_filepath).parse()
-    nb_sublog_dict = log_parser.attach_notebooks(args.notebooks_dir, verbose=False)
-    logger.info(
-        'Sample:' +\
-        f'\nSelected log file: {selected_log_filepath}' +\
-        f'\nfetching notebooks from log file: {args.notebooks_dir}' +\
-        f'\nLog parser per these notebooks:\n{nb_sublog_dict.keys()}'
-    )
+    import os
+    import re
+    from utils import get_all_file_with_extension_in_dir_recursively
+    from parsers.nb_parser import NotebookParser
+
+    verbose = True # TODO
+    notebooks_dir = args.notebooks_dir # TODO
+    filter=lambda x: re.match(r'[A-Z]-subject-.+.ipynb', x) # TODO
+    if verbose: print(f'Filtering notebooks with filter: {filter.__name__}')
+
+    nb_filename_dict = {
+        os.path.basename(nb_filepath): nb_filepath
+        for nb_filepath in
+        get_all_file_with_extension_in_dir_recursively(notebooks_dir, ".ipynb")
+        if filter(os.path.basename(nb_filepath))
+    }
+
+    print(f'\nThere are total {len(nb_filename_dict)} notebooks found in {notebooks_dir} directory')
 
 
-    for i, (nb_filepath, (nb_log_parser, nb_parser)) in enumerate(nb_sublog_dict.items()):
+    for i, nb_parser in enumerate(map(NotebookParser, nb_filename_dict.values())):
         # try:
-        logger.success(f'{i} Processing notebook: {nb_filepath} with {len(nb_parser)} cells, using {nb_log_parser.filepath} log')
+        logger.success(f'{i} Processing notebook: {nb_parser.filepath} with {len(nb_parser)} cells.')
         logger.trace(f'{i} nb_parser:\n{nb_parser}')
 
         try:
-            nb_progress = get_notebook_progress_using_log(nb_parser, nb_log_parser)
+            nb_progress = get_notebook_progress_simulate(nb_parser, keep_code_header_comments=args.keep_code_header_comments)
         except InvalidLogError as e:
-            logger.error(f'@ {i} Exception: {e} with nb_filepath({nb_filepath}) and nb_log_parser({nb_log_parser.filepath})')
+            logger.error(f'@ {i} Exception: {e} with nb_filepath({nb_parser.filepath})')
             continue
 
-        nb_parser_filename = os.path.basename(nb_parser.filepath)
-        nb_log_parser_filename = os.path.basename(nb_log_parser.filepath)
-
         logger.info(f'Notebook: {nb_parser.filepath}')
-        logger.info(f'Log: {nb_log_parser.filepath}')
         logger.info(f'Number of progress steps: {len(nb_progress)}')
         logger.info(f'Number of progress steps unrolled: {sum([len(step) for step in nb_progress])}')
 
@@ -82,8 +71,7 @@ if __name__ == "__main__":
             if len(step) == 0:
                 explanations.append(
                     perform_explain_change_on_nb_parser(
-                        # nb_parser,
-                        step.nb_parser_state, # TODO VALIDATE
+                        step.nb_parser_state,
                         step,
                         step_i,
                         prev_applied_changes_nb_states,

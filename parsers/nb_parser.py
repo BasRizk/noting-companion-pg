@@ -124,6 +124,14 @@ class NotebookParser:
                 break
         return _self
 
+    def drop_content(self, cell, copy=True):
+        if copy:
+            _self = deepcopy(self)
+        else:
+            _self = self
+        _self.cell_entries[cell.cell_id].source = []
+        return _self
+
     def replace_cell_content(self, cell, log_content, copy=True):
         if copy:
             _self = deepcopy(self)

@@ -90,8 +90,10 @@ class LogEntry:
             timestamp_datetime = datetime.fromisoformat(timestamp)
             timestamp_ms = int(timestamp_datetime.timestamp() * 1000)
             return timestamp_ms
+        except TypeError:
+            return timestamp
         except ValueError:
-            return None
+            return timestamp
 
 class LogParser:
     def __init__(self, filepath):
@@ -287,30 +289,30 @@ class LogParser:
             for i, nb_filepath in enumerate(found_related_notebooks):
                 print(f"{i} {nb_filepath}")
 
-        log_parser_per_notebook = self.divide_per_notebook(found_related_notebooks)
+        nb_sublog_dict = self.divide_per_notebook(found_related_notebooks)
 
-        log_parser_per_notebook = {
+        nb_sublog_dict = {
             nb_filepaths_dict[nb_filename]: (log_parser, NotebookParser(nb_filepaths_dict[nb_filename]))
-            for nb_filename, log_parser in log_parser_per_notebook.items()
+            for nb_filename, log_parser in nb_sublog_dict.items()
         }
 
-        num_notebooks = len(log_parser_per_notebook)
+        num_notebooks = len(nb_sublog_dict)
         print(f'There are {num_notebooks} notebooks with logs')
 
         # filter only continous logs (i.e. logs sections on the same notebook)
-        # log_parser_per_notebook = {
+        # nb_sublog_dict = {
         #     nb_filepath: parser
-        #     for nb_filepath, parser in log_parser_per_notebook.items()
+        #     for nb_filepath, parser in nb_sublog_dict.items()
         #     if parser.is_continous_notebook_log()
         # }
-        # print(f'There are {len(log_parser_per_notebook)} out of {num_notebooks} notebooks with continous logs')
+        # print(f'There are {len(nb_sublog_dict)} out of {num_notebooks} notebooks with continous logs')
         # if verbose:
         #     print('Dropped non continous notebooks:')
-        #     for nb_filepath in set(found_related_notebooks) - set(log_parser_per_notebook.keys()):
+        #     for nb_filepath in set(found_related_notebooks) - set(nb_sublog_dict.keys()):
         #         print(nb_filepath)
 
 
-        for i, (nb_filepath, (nb_log_parser, nb_parser)) in enumerate(log_parser_per_notebook.items()):
+        for i, (nb_filepath, (nb_log_parser, nb_parser)) in enumerate(nb_sublog_dict.items()):
             assert nb_filepath == nb_parser.filepath and nb_filepath != nb_log_parser.filepath
 
-        return log_parser_per_notebook
+        return nb_sublog_dict

@@ -115,7 +115,7 @@ class InvalidLogError(Exception):
 class NotebookStateLogMismatchError(Exception):
     pass
 
-def get_notebook_progress(nb_parser: NotebookParser, nb_log_parser: LogParser, verbose=0):
+def get_notebook_progress_using_log(nb_parser: NotebookParser, nb_log_parser: LogParser, verbose=0):
     nb_progress = [NBStep(nb_parser)]
 
     # reversed_nb_log_parser = reversed(nb_log_parser)
@@ -170,10 +170,9 @@ def get_notebook_progress(nb_parser: NotebookParser, nb_log_parser: LogParser, v
                 log_entry_idx_ptr = ckpt_ptr + 1
                 continue
 
+            # else there is modification, find the corresponding cell in the notebook and apply the modification
+            # the modification is replacement with content of cell_excution_begin_entry with cell_selected_entry
             logger.debug(f'Modiciation found @ {log_entry_idx_ptr}.')
-
-            # TODO else there is modification, find the corresponding cell in the notebook and apply the modification
-            # TODO the modification is replacement with content of cell_excution_begin_entry with cell_selected_entry!!
 
             next_step = nb_progress[-1].generate_next_step(
                 selected_log_entry=cell_selected_entry,
@@ -195,7 +194,51 @@ def get_notebook_progress(nb_parser: NotebookParser, nb_log_parser: LogParser, v
 
         log_entry_idx_ptr += 1
 
-    # nb_progress = list(reversed(nb_progress))
+    if verbose:
+        logger.success(f'There are {len(nb_progress)} (sub)-notebooks in the progress')
+
+    if len(nb_progress) < 2:
+        raise Exception('Failed to find any progress')
+
+    return nb_progress
+
+
+def get_notebook_progress_simulate(nb_parser_t: NotebookParser, keep_code_header_comments=False, verbose=0):
+    nb_progress = []
+
+    for cell_idx in reversed(range(len(nb_parser_t))):
+        current_cell = nb_parser_t[cell_idx]
+        if current_cell.cell_type != "code":
+            continue
+
+        fake_cell_excution_begin_entry = LogEntry(
+            entry_type="CELL_EXECUTION_BEGIN",
+            content="\\n".join("".join(current_cell.source).split('\n')),
+            cell_type=current_cell.cell_type,
+            notebook=nb_parser_t.filepath,
+            # NOTE: DUMMY arguments as it is simulation
+            timestamp=current_cell.cell_id,
+            _id=cell_idx*100,
+            subject='SIMULATION', user='SIMULATION',
+            context='SIMULATION', session_type='SIMULATION',
+        )
+
+        if keep_code_header_comments:
+            nb_parser_t_minus_1 = nb_parser_t.drop_code(current_cell)
+        else:
+            nb_parser_t_minus_1 = nb_parser_t.drop_content(current_cell)
+        nb_progress.append(
+            NBStep(
+                nb_parser_state=nb_parser_t, # the new state at time t, before the reverse change
+                log_entry=fake_cell_excution_begin_entry,
+                cell_id=current_cell.cell_id,
+                change_type='INSERT'
+            )
+        )
+        nb_parser_t = nb_parser_t_minus_1
+
+    nb_progress.append(NBStep(nb_parser_t_minus_1))
+    nb_progress = list(reversed(nb_progress))
     if verbose:
         logger.success(f'There are {len(nb_progress)} (sub)-notebooks in the progress')
 
