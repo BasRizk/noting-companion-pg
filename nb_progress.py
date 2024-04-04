@@ -127,7 +127,7 @@ def get_notebook_progress_using_log(nb_parser: NotebookParser, nb_log_parser: Lo
             if nb_log_parser[log_entry_idx_ptr].cell_type != "code":
                 raise InvalidLogError(f'Non-code CELL_EXECUTION_END cell encountered:\n{nb_log_parser[log_entry_idx_ptr]}')
 
-            logger.debug(f'Found CELL_EXECUTION_END entry @ {log_entry_idx_ptr}')
+            logger.trace(f'Found CELL_EXECUTION_END entry @ {log_entry_idx_ptr}')
             # logger.trace(f'{nb_log_parser[log_entry_idx_ptr]}')
 
             cell_excution_end_entry = nb_log_parser[log_entry_idx_ptr]
@@ -149,15 +149,23 @@ def get_notebook_progress_using_log(nb_parser: NotebookParser, nb_log_parser: Lo
                     f'{cell_excution_end_entry}\n\n'
                 )
 
+
             logger.trace(f'Found CELL_EXECUTION_BEGIN entry @ {log_entry_idx_ptr}')
             # logger.trace(f'{nb_log_parser[log_entry_idx_ptr]}')
 
             # find the previous CELL_SELECTED entry
             while log_entry_idx_ptr > 0 and nb_log_parser[log_entry_idx_ptr].entry_type != "CELL_SELECTED":
                 log_entry_idx_ptr -= 1
-            if log_entry_idx_ptr < 0 or nb_log_parser[log_entry_idx_ptr].entry_type != "CELL_SELECTED":
-                raise InvalidLogError('Failed to find corresponding CELL_SELECTED entry')
             cell_selected_entry = nb_log_parser[log_entry_idx_ptr]
+            if log_entry_idx_ptr < 0 or cell_selected_entry.entry_type != "CELL_SELECTED":
+                raise InvalidLogError('Failed to find corresponding CELL_SELECTED entry')
+
+            if cell_selected_entry.cell_type != cell_excution_begin_entry.cell_type:
+                raise InvalidLogError(
+                    f'CELL_SELECTED and CELL_EXECUTION_BEGIN cell type mismatch @ line {log_entry_idx_ptr} in file {nb_log_parser.filepath}:\n\n'
+                    f'{cell_selected_entry}\n\n'
+                    f'{cell_excution_begin_entry}\n\n'
+                )
 
             logger.trace(f'Found CELL_SELECTED entry @ {log_entry_idx_ptr}')
             # logger.trace(f'{nb_log_parser[log_entry_idx_ptr]}')
@@ -172,7 +180,7 @@ def get_notebook_progress_using_log(nb_parser: NotebookParser, nb_log_parser: Lo
 
             # else there is modification, find the corresponding cell in the notebook and apply the modification
             # the modification is replacement with content of cell_excution_begin_entry with cell_selected_entry
-            logger.debug(f'Modiciation found @ {log_entry_idx_ptr}.')
+            logger.trace(f'Modiciation found @ {log_entry_idx_ptr}.')
 
             next_step = nb_progress[-1].generate_next_step(
                 selected_log_entry=cell_selected_entry,

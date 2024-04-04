@@ -213,6 +213,36 @@ class NotebookParser:
     def __iter__(self):
         return iter(self.cell_entries)
 
+    def to_notebook(self, directory='__nb_states', filepath_postfix='_modified'):
+        cells = self.get_cells(json=True, compact=False)
+        for cell, org_cell in zip(cells, self.json_data['cells']):
+            if cell['cell_type'] == 'code':
+                cell['metadata'] = {}
+                cell['outputs'] = []
+                cell['id'] = org_cell['id']
+            elif cell['cell_type'] == 'markdown':
+                cell['metadata'] = {}
+            else:
+                raise ValueError(f'Unknown cell type: {cell["cell_type"]}')
+
+        update_json = {
+            'cells': cells,
+            'metadata': self.json_data['metadata'],
+            'nbformat': self.json_data['nbformat'],
+            'nbformat_minor': self.json_data['nbformat_minor']
+        }
+
+        new_filepath = self.filepath.replace('.ipynb', f'{filepath_postfix}.ipynb')
+        import os
+        if os.path.isabs(new_filepath):
+            new_filepath = os.path.relpath(new_filepath)
+        new_filepath = f'{directory}/{new_filepath}'
+        os.makedirs(os.path.dirname(new_filepath), exist_ok=True)
+        with open(new_filepath, 'w') as f:
+            json.dump(update_json, f, indent=4)
+
+        return new_filepath
+
     # def remove_answer_key(self):
     #     # Remove answer key
     #     for i, cell in enumerate(notebook_parser.get_cells()):

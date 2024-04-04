@@ -9,7 +9,7 @@ from langchain_core.prompts import (
     ChatPromptTemplate,
     PromptTemplate
 )
-from . import (
+from .. import (
     GPT_MODEL_NAME,
     count_tokens_in_prompt_messages,
     count_tokens_in_string,

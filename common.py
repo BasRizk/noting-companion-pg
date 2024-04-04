@@ -7,8 +7,8 @@ from utils import (
     prettify_str,
     logger
 )
-from prompts.code_explain import code_explain_prompt
-from prompts.generate_questions import make_questions_prompt
+from prompts.legacy.code_explain_state import code_explain_prompt
+from prompts.legacy.generate_questions_per_state import make_questions_prompt
 
 def generate_questions(prev_applied_changes_nb_states, explanations, prev_generated_questions):
     generated_questions = []

@@ -1,6 +1,7 @@
 import tiktoken
 
-GPT_MODEL_NAME = 'gpt-3.5-turbo-16k'
+GPT_MODEL_NAME = 'gpt-3.5-turbo'
+# GPT_MODEL_NAME = "gpt-4"
 
 def _skip_curly_brackets(content):
     return content.replace('{', '}}').replace('}', '}}')

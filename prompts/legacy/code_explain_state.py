@@ -10,7 +10,7 @@ from langchain_core.prompts import (
     ChatPromptTemplate,
     PromptTemplate
 )
-from . import (
+from .. import (
     GPT_MODEL_NAME,
     count_tokens_in_prompt_messages,
     count_tokens_in_string,
@@ -98,6 +98,22 @@ Query:
 """
 
 
+VERIFY_PROMPT_TEMPLATE_HEADER = """
+You will be queried with a particular state of Python Notebook cells at time t, as well as the explanation of the cells. Your task is to verify the correctness of the explanation of each cell and the overall summary of the whole notebook. Rewrite the explanation with any adjustments you see fit in the same JSON format as follows:
+
+{NB_EXPLANATION_FORMAT}
+
+Query:
+Notebook State:
+{notebook_state}
+
+Explanation:
+{state_explanation}
+
+"""
+
+
+
 
 
 def code_explain_prompt(nb_state_cells: NotebookParser, prev_messages=[]):
@@ -109,7 +125,6 @@ def code_explain_prompt(nb_state_cells: NotebookParser, prev_messages=[]):
     # output_parser = JsonOutputParser(pydantic_object=NotebookExplanation)
     # output_parser = JsonOutputParser()
 
-
     prompt = PromptTemplate(
         template=PROMPT_TEMPLATE_HEADER,
         input_variables=['notebook_state'],
@@ -119,12 +134,18 @@ def code_explain_prompt(nb_state_cells: NotebookParser, prev_messages=[]):
         }
     )
 
-    prompt = prompt.partial(notebook_state=str(nb_state_cells))
+    verify_prompt = PromptTemplate(
+        template=VERIFY_PROMPT_TEMPLATE_HEADER,
+        input_variables=['state_explanation', 'notebook_state'],
+        partial_variables={
+            'NB_EXPLANATION_FORMAT': NB_CELLS_EXPLANATION_TEMPLATE,
+        }
+    )
 
     logger.trace(f'Code Explain Prompt:\n{prettify_str(prompt)}')
     llm = ChatOpenAI(
         model=GPT_MODEL_NAME,
-        temperature=0,
+        temperature=0.7,
         # model_kwargs={
         #     # "max_tokens": num_tokens*3,
         #     # "top_p": 1,
@@ -132,6 +153,8 @@ def code_explain_prompt(nb_state_cells: NotebookParser, prev_messages=[]):
         #     "presence_penalty": 0.5,
         # }
     )
+
+
 
     def parse(response):
         try:
@@ -146,17 +169,31 @@ def code_explain_prompt(nb_state_cells: NotebookParser, prev_messages=[]):
             "cells": response[:-1],
             "summary": response[-1]
         }
-        if len(response['cells']) != len(nb_state_cells):
-            raise Exception(f'Error, response cells count({len(response["cells"])}) != nb_state_cells count({len(nb_state_cells)})')
+        if isinstance(nb_state_cells, list):
+            if len(response['cells']) != len(nb_state_cells):
+                raise Exception(f'Error, response cells count({len(response["cells"])}) != nb_state_cells count({len(nb_state_cells)})')
 
         return response
 
-    parser = RunnableLambda(lambda x: parse(x))
-    chain = prompt | llm | parser
+    exp_parser = RunnableLambda(lambda x: parse(x))
+    chain = prompt | llm | exp_parser
+    state_explanation = chain.invoke({
+        'notebook_state': str(nb_state_cells)
+    })
 
-    response = chain.invoke({})
+    chain = verify_prompt | llm | exp_parser
+    verified_explanation = chain.invoke({
+        'state_explanation': str(state_explanation),
+        'notebook_state': str(nb_state_cells)
+    })
 
-    num_tokens_from_response = count_tokens_in_string(response)
+    if state_explanation != verified_explanation:
+        logger.warning(f'Explanation verification failed, returning verified explanation')
+        logger.trace(f'State Explanation:\n{state_explanation}')
+        logger.trace(f'Verified Explanation:\n{verified_explanation}')
+        breakpoint()
+
+    num_tokens_from_response = count_tokens_in_string(verified_explanation)
     logger.trace(f'num_tokens from response: {num_tokens_from_response}')
 
-    return response
+    return verified_explanation

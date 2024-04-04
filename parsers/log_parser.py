@@ -280,7 +280,8 @@ class LogParser:
             get_all_file_with_extension_in_dir_recursively(notebooks_dir, ".ipynb")
             if filter(os.path.basename(nb_filepath))
         }
-        print(f'\nThere are total {len(nb_filepaths_dict)} notebooks found in {notebooks_dir} directory')
+        if verbose:
+            print(f'\nThere are total {len(nb_filepaths_dict)} notebooks found in {notebooks_dir} directory')
 
         linked_notebooks = self.get_notebooks()
         found_related_notebooks = sorted(list(linked_notebooks.intersection(nb_filepaths_dict.keys())))
@@ -296,8 +297,9 @@ class LogParser:
             for nb_filename, log_parser in nb_sublog_dict.items()
         }
 
-        num_notebooks = len(nb_sublog_dict)
-        print(f'There are {num_notebooks} notebooks with logs')
+        if verbose:
+            num_notebooks = len(nb_sublog_dict)
+            print(f'There are {num_notebooks} notebooks with logs')
 
         # filter only continous logs (i.e. logs sections on the same notebook)
         # nb_sublog_dict = {
