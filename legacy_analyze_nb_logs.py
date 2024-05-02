@@ -12,14 +12,6 @@ from common import generate_questions, perform_explain_change_on_nb_parser
 CACHE_DIR = 'data/tac_cache'
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-def pickle_object(object_name, object_instance, object_nb_filepath, object_log_filepath):
-    import pickle
-    object_nb_filename = os.path.basename(object_nb_filepath)
-    object_log_filename = os.path.basename(object_log_filepath)
-    with open(f'{CACHE_DIR}/{object_name}_{object_nb_filename}_{object_log_filename}.pkl', 'wb') as f:
-        pickle.dump(object_instance, f)
-
-
 def load_object(object_name, object_nb_filepath, object_log_filepath):
     import pickle
     object_nb_filename = os.path.basename(object_nb_filepath)
