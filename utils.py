@@ -5,6 +5,10 @@ from langchain_core.prompts import (
     PromptTemplate
 )
 from loguru import logger
+from typing import List
+from parsers.nb_parser import NotebookParser
+from parsers.log_parser import LogParser
+from nb_progress import get_notebook_progress_using_log, InvalidLogError, NotebookStateLogMismatchError
 
 
 def get_all_file_with_extension_in_dir_recursively(dir_path, extension):
@@ -51,3 +55,84 @@ def prettify_str(_obj, text_width=120, percentage=1.0):
     else:
         raise Exception(f"Type {type(_obj)} not supported for prettify_str")
 
+def generate_nb_states(nb_progress):
+    nb_states: List[NotebookParser] = []
+    for step_i, step in enumerate(nb_progress):
+        step.reset()
+        if len(step) == 0:
+            nb_states.append(step.nb_parser_state)
+        else:
+            # prev_msgs = [] # TODO should I reset prev_msgs upon each completed step?
+            for change_i, nb_parser_with_change_applied in enumerate(step):
+                nb_states.append(
+                    nb_parser_with_change_applied
+                )
+    return nb_states
+
+
+
+def get_selected_logged_sessions(notebooks_dir, logs_dir, min_num_steps=4):
+    all_log_filepathes = get_all_file_with_extension_in_dir_recursively(logs_dir, ".log")
+    all_log_filepathes.sort()
+    # skip files containing baseline
+    all_log_filepathes = [log_filepath for log_filepath in all_log_filepathes if "baseline" not in log_filepath]
+    logger.success(f'There are {len(all_log_filepathes)} log files in {logs_dir} directory')
+
+    selected_sessions = []
+    for selected_log_filepath in all_log_filepathes:
+        log_parser = LogParser(selected_log_filepath).parse()
+        nb_sublog_dict = log_parser.attach_notebooks(notebooks_dir, verbose=False)
+        # logger.debug(
+        #     'Sample:' +\
+        #     f'\nSelected log file: {selected_log_filepath}' +\
+        #     f'\nfetching notebooks from log file: {notebooks_dir}' +\
+        #     f'\nLog parser per these notebooks:\n{nb_sublog_dict.keys()}'
+        # )
+
+        for i, (nb_filepath, (nb_log_parser, nb_parser)) in enumerate(nb_sublog_dict.items()):
+            try:
+                nb_progress = get_notebook_progress_using_log(nb_parser, nb_log_parser)
+            except InvalidLogError as e:
+                # logger.error(f'@ {i} Exception: {e} with nb_filepath({nb_parser.filepath}) and nb_log_parser({nb_log_parser.filepath})')
+                continue
+            except NotebookStateLogMismatchError as e:
+                # logger.error(f'@ {i} Exception: {e} with nb_filepath({nb_parser.filepath}) and nb_log_parser({nb_log_parser.filepath})')
+                continue
+
+            nb_states = generate_nb_states(nb_progress)
+            num_progress_steps = len(nb_progress)
+            if num_progress_steps >= min_num_steps:
+                # logger.info(f'Notebook: {nb_parser.filepath}')
+                # logger.info(f'Log: {nb_log_parser.filepath}')
+                # logger.info(f'Number of progress steps: {num_progress_steps}')
+                selected_sessions.append((nb_parser, nb_log_parser, nb_progress, nb_states))
+
+
+    return selected_sessions
+
+import os
+from nb_progress import get_notebook_progress_simulate
+def get_selected_simulated_sessions(notebooks_dir, min_num_steps=4):
+    nb_filename_dict = {
+        os.path.basename(nb_filepath): nb_filepath
+        for nb_filepath in
+        get_all_file_with_extension_in_dir_recursively(notebooks_dir, ".ipynb")
+    }
+
+    logger.success(f'There are {len(nb_filename_dict)} notebooks found in {notebooks_dir} directory')
+
+    selected_sessions = []
+    for i, nb_parser in enumerate(map(NotebookParser, nb_filename_dict.values())):
+        try:
+            nb_progress = get_notebook_progress_simulate(nb_parser)
+        except InvalidLogError as e:
+            logger.error(f'@ {i} Exception: {e} with nb_filepath({nb_parser.filepath})')
+            continue
+
+        nb_states = generate_nb_states(nb_progress)
+        num_progress_steps = len(nb_progress)
+        if num_progress_steps >= min_num_steps:
+            # logger.info(f'Notebook: {nb_parser.filepath}')
+            # logger.info(f'Number of progress steps: {num_progress_steps}')
+            selected_sessions.append((nb_parser, nb_progress, nb_states))
+    return selected_sessions

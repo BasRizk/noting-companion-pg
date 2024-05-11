@@ -221,7 +221,7 @@ def get_notebook_progress_simulate(nb_parser_t: NotebookParser, keep_code_header
 
         fake_cell_excution_begin_entry = LogEntry(
             entry_type="CELL_EXECUTION_BEGIN",
-            content="\\n".join("".join(current_cell.source).split('\n')),
+            content="\n\\n".join("".join(current_cell.source).split('\n')),
             cell_type=current_cell.cell_type,
             notebook=nb_parser_t.filepath,
             # NOTE: DUMMY arguments as it is simulation
