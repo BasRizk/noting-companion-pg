@@ -1,5 +1,8 @@
 data
 .vscode
+.table
+*/*.table
+generated_qa_pairs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

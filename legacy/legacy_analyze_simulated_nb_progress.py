@@ -9,7 +9,7 @@ from utils import (
     prettify_str,
     logger
 )
-from legacy_common import generate_questions, perform_explain_change_on_nb_parser
+from legacy.legacy_common import generate_questions, perform_explain_change_on_nb_parser
 
 
 
