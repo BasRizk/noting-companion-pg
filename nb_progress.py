@@ -243,10 +243,27 @@ def get_notebook_progress_simulate(nb_parser_t: NotebookParser, keep_code_header
                 change_type='INSERT'
             )
         )
+
+        # VALIDATION STEP
+        for i in range(len(nb_parser_t)):
+            cell_source = nb_parser_t[i].source
+            # ensure that every one ends with '\n' except the last one
+            for j in range(len(cell_source)-1):
+                if not cell_source[j].endswith('\n'):
+                    raise Exception(f'Invalid cell source @ {i} {j}:\n{cell_source[j]}')
+
+        for i in range(len(nb_parser_t_minus_1)):
+            cell_source = nb_parser_t[i].source
+            # ensure that every one ends with '\n' except the last one
+            for j in range(len(cell_source)-1):
+                if not cell_source[j].endswith('\n'):
+                    raise Exception(f'Invalid cell source @ {i} {j}:\n{cell_source[j]}')
+
         nb_parser_t = nb_parser_t_minus_1
 
     nb_progress.append(NBStep(nb_parser_t_minus_1))
     nb_progress = list(reversed(nb_progress))
+
     if verbose:
         logger.success(f'There are {len(nb_progress)} (sub)-notebooks in the progress')
 

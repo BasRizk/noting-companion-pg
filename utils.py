@@ -8,7 +8,7 @@ from loguru import logger
 from typing import List
 from parsers.nb_parser import NotebookParser
 from parsers.log_parser import LogParser
-from nb_progress import get_notebook_progress_using_log, InvalidLogError, NotebookStateLogMismatchError
+from nb_progress import get_notebook_progress_using_log, InvalidLogError, NotebookStateLogMismatchError, NBStep
 
 
 def get_all_file_with_extension_in_dir_recursively(dir_path, extension):
@@ -55,19 +55,59 @@ def prettify_str(_obj, text_width=120, percentage=1.0):
     else:
         raise Exception(f"Type {type(_obj)} not supported for prettify_str")
 
-def generate_nb_states(nb_progress):
+def generate_nb_states(nb_progress: List[NBStep]):
     nb_states: List[NotebookParser] = []
     for step_i, step in enumerate(nb_progress):
         step.reset()
+
         if len(step) == 0:
             nb_states.append(step.nb_parser_state)
         else:
             # prev_msgs = [] # TODO should I reset prev_msgs upon each completed step?
             for change_i, nb_parser_with_change_applied in enumerate(step):
-                nb_states.append(
-                    nb_parser_with_change_applied
-                )
+                nb_states.append(nb_parser_with_change_applied)
+
+                if len(nb_states) > 1:
+                    state_t_minus_1 = nb_states[-2]
+                    state_t = nb_states[-1]
+                    if len(state_t) != len(state_t_minus_1):
+                        raise Exception('Invalid number of cells in the notebook states')
+                    from prompts.code_explain_change import get_diff_nb_states
+                    cell_diff = get_diff_nb_states(state_t_minus_1, state_t)
+                    if len(cell_diff) != 1:
+                        breakpoint()
+                        raise Exception('Invalid number of changes in cells of the notebook states')
+
     return nb_states
+
+class NotebookSession:
+    def __init__(self, nb_parser, nb_progress, nb_states, nb_log_parser=None):
+        self.nb_parser = nb_parser
+        self.nb_log_parser = nb_log_parser
+        self.nb_progress = nb_progress
+        self.nb_states = nb_states
+
+    def info(self):
+        logger.info(f'Notebook: {self.nb_parser.filepath}')
+        if self.nb_log_parser is not None:
+            logger.info(f'Log: {self.nb_log_parser.filepath}')
+        else:
+            logger.info(f'Log: Simulated.')
+        logger.info(f'Number of progress steps: {len(self.nb_progress)}')
+
+    @property
+    def name(self):
+        return f'{self.nb_parser.filepath.replace("/", "_")}_{self.nb_log_parser.filepath.replace("/", "_")}'
+
+    def write_first_last_states(self, output_dir):
+        # write notebook first and last states
+        first_state = self.nb_states[0]
+        last_state = self.nb_states[-1]
+        qa_states_dir= f'{output_dir}/qa_pairs_{self.name}'
+        os.makedirs(qa_states_dir, exist_ok=True)
+        first_state.to_notebook(directory=qa_states_dir, filepath_postfix='_first_state')
+        last_state.to_notebook(directory=qa_states_dir, filepath_postfix='_last_state')
+        logger.info(f'Wrote to {qa_states_dir} the method names for each column in the csv file')
 
 
 
@@ -78,7 +118,7 @@ def get_selected_logged_sessions(notebooks_dir, logs_dir, min_num_steps=4):
     all_log_filepathes = [log_filepath for log_filepath in all_log_filepathes if "baseline" not in log_filepath]
     logger.success(f'There are {len(all_log_filepathes)} log files in {logs_dir} directory')
 
-    selected_sessions = []
+    selected_sessions: List[NotebookSession] = []
     for selected_log_filepath in all_log_filepathes:
         log_parser = LogParser(selected_log_filepath).parse()
         nb_sublog_dict = log_parser.attach_notebooks(notebooks_dir, verbose=False)
@@ -105,9 +145,9 @@ def get_selected_logged_sessions(notebooks_dir, logs_dir, min_num_steps=4):
                 # logger.info(f'Notebook: {nb_parser.filepath}')
                 # logger.info(f'Log: {nb_log_parser.filepath}')
                 # logger.info(f'Number of progress steps: {num_progress_steps}')
-                selected_sessions.append((nb_parser, nb_log_parser, nb_progress, nb_states))
-
-
+                selected_sessions.append(
+                    NotebookSession(nb_parser, nb_progress, nb_states, nb_log_parser)
+                )
     return selected_sessions
 
 import os
@@ -130,9 +170,12 @@ def get_selected_simulated_sessions(notebooks_dir, min_num_steps=4):
             continue
 
         nb_states = generate_nb_states(nb_progress)
+
         num_progress_steps = len(nb_progress)
         if num_progress_steps >= min_num_steps:
             # logger.info(f'Notebook: {nb_parser.filepath}')
             # logger.info(f'Number of progress steps: {num_progress_steps}')
-            selected_sessions.append((nb_parser, nb_progress, nb_states))
+            selected_sessions.append(
+                NotebookSession(nb_parser, nb_progress, nb_states)
+            )
     return selected_sessions
