@@ -151,16 +151,19 @@ class NotebookParser:
         _self.cell_entries[cell_id].source = log_entry.content.split('\\n')
 
         # ensure that every one ends with '\n' except the last one
-        while True:
-            for i in range(len(_self.cell_entries[cell_id].source) - 1):
-                if not _self.cell_entries[cell_id].source[i].endswith('\n'):
-                    # concat the next line to the current line
-                    _self.cell_entries[cell_id].source[i] += f'\\n{_self.cell_entries[cell_id].source[i+1]}'
-                    _self.cell_entries[cell_id].source.pop(i+1)
+        if _self.cell_entries[cell_id].source[0].endswith('\n'):
+            # NOTE: it is fake logs, fix up if there are mistakes..
+            # fake logs are not supposed to end with '\n'
+            while True:
+                for i in range(len(_self.cell_entries[cell_id].source) - 1):
+                    if not _self.cell_entries[cell_id].source[i].endswith('\n'):
+                        # concat the next line to the current line
+                        _self.cell_entries[cell_id].source[i] += f'\\n{_self.cell_entries[cell_id].source[i+1]}'
+                        _self.cell_entries[cell_id].source.pop(i+1)
+                        break
+                else:
+                    # if not concat has been applied then break, otherwise, test again.
                     break
-            else:
-                # if not concat has been applied then break, otherwise, test again.
-                break
 
         return _self
 

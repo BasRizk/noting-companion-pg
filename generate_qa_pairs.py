@@ -1,11 +1,18 @@
 import os
-from loguru import logger
 from typing import List
+from tqdm import tqdm
 from parsers.nb_parser import NotebookParser
 from parsers.log_parser import LogParser
-from utils import get_all_file_with_extension_in_dir_recursively, logger
+from joblib import Parallel, delayed
+from copy import deepcopy
+from utils import (
+    NotebookSession,
+    get_selected_logged_sessions,
+    get_selected_simulated_sessions,
+    logger
+)
 
-def get_qa_pairs(nb_states, consecutive_only=True, method='offline', num_questions=3):
+def get_qa_pairs(nb_states: List[NotebookParser], consecutive_only=True, method='offline', num_questions=3, pbar=True):
     from prompts.generate_questions_per_changes import make_questions_prompt
     from prompts.answer_questions_per_change import answer_questions
     from prompts.code_explain_change import get_diff_nb_states
@@ -17,7 +24,7 @@ def get_qa_pairs(nb_states, consecutive_only=True, method='offline', num_questio
                 continue
             qa_pairs_dict[(i, j)] = None
 
-    for (t1, t2) in qa_pairs_dict.keys():
+    for (t1, t2) in tqdm(qa_pairs_dict.keys(), desc=f'Generating QA pairs by {method}', disable=not pbar):
         cell_diff = get_diff_nb_states(nb_states[t1], nb_states[t2])
         if consecutive_only:
             if len(cell_diff) != 1:
@@ -55,7 +62,6 @@ def get_qa_pairs(nb_states, consecutive_only=True, method='offline', num_questio
 
         elif method == 'online':
             import requests
-            # make request to `https://ckg12.isi.edu/knic-services/generate_questions`
             response_json = requests.post('https://ckg12.isi.edu/knic-services/generate_questions', json={
                 'code': code_after_modification,
                 'num_questions': num_questions
@@ -76,7 +82,7 @@ def get_qa_pairs(nb_states, consecutive_only=True, method='offline', num_questio
         elif method == 'mix':
             # generate questions from online method
             # generate answers from offline method
-            qa_pairs_dict = get_qa_pairs(nb_states, consecutive_only=True, method='online')
+            qa_pairs_dict = get_qa_pairs(nb_states, consecutive_only=True, method='online', pbar=False)
             for (t1, t2) in qa_pairs_dict.keys():
                 cell_diff = get_diff_nb_states(nb_states[t1], nb_states[t2])
                 assert len(cell_diff) == 1, f'Expected 1 cell diff, got {len(cell_diff)}'
@@ -115,106 +121,122 @@ def get_qa_pairs(nb_states, consecutive_only=True, method='offline', num_questio
 
 
 if __name__ == "__main__":
-    notebooks_dir = 'data/tac_notebooks'
-    logs_dir = 'data/tac_raw_logs'
-    all_log_filepathes = get_all_file_with_extension_in_dir_recursively(logs_dir, ".log")
-    all_log_filepathes.sort()
-    # skip files containing baseline
-    all_log_filepathes = [log_filepath for log_filepath in all_log_filepathes if "baseline" not in log_filepath]
-    logger.success(f'There are {len(all_log_filepathes)} log files in {logs_dir} directory')
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--notebooks_dir', type=str, default='data/tac_notebooks')
+    parser.add_argument('--logs_dir', type=str, default='data/tac_raw_logs')
+    parser.add_argument('--simulate_log', action='store_true', default=False)
+    parser.add_argument('--min_num_steps', type=int, default=4, help='Minimum number of steps in the progress log to consider a session')
+    parser.add_argument('--keep_code_header_comments', action='store_true', default=False)
+    parser.add_argument('--output_dir', type=str, default='generated_qa_pairs')
+    parser.add_argument(
+        '--methods', nargs='+',
+        default=[
+            'offline',
+            # 'online',
+            'mix'
+        ]
+    )
+    parser.add_argument('--shuffle_methods', action='store_true', default=False)
+    args = parser.parse_args()
 
-    selected_sessions = []
-    for selected_log_filepath in all_log_filepathes:
-        log_parser = LogParser(selected_log_filepath).parse()
-        nb_sublog_dict = log_parser.attach_notebooks(notebooks_dir, verbose=False)
-        # logger.debug(
-        #     'Sample:' +\
-        #     f'\nSelected log file: {selected_log_filepath}' +\
-        #     f'\nfetching notebooks from log file: {notebooks_dir}' +\
-        #     f'\nLog parser per these notebooks:\n{nb_sublog_dict.keys()}'
-        # )
+    if not os.path.exists(args.logs_dir) and not args.simulate_log:
+        raise ValueError(f'Invalid logs_dir: {args.logs_dir}, while simulate_log is False')
 
-        from nb_progress import get_notebook_progress_using_log, InvalidLogError, NotebookStateLogMismatchError
+    if args.simulate_log:
+        logger.info('Simulating logs')
 
+    args.output_dir = os.path.join(
+        args.output_dir,
+        args.notebooks_dir.replace('/', '_'),
+        '_'.join(sorted(args.methods))
+    )
 
-        for i, (nb_filepath, (nb_log_parser, nb_parser)) in enumerate(nb_sublog_dict.items()):
-            try:
-                nb_progress = get_notebook_progress_using_log(nb_parser, nb_log_parser)
-            except InvalidLogError as e:
-                # logger.error(f'@ {i} Exception: {e} with nb_filepath({nb_parser.filepath}) and nb_log_parser({nb_log_parser.filepath})')
-                continue
-            except NotebookStateLogMismatchError as e:
-                # logger.error(f'@ {i} Exception: {e} with nb_filepath({nb_parser.filepath}) and nb_log_parser({nb_log_parser.filepath})')
-                continue
-
-
-            nb_states: List[NotebookParser] = []
-            for step_i, step in enumerate(nb_progress):
-                step.reset()
-                if len(step) == 0:
-                    nb_states.append(step.nb_parser_state)
-                else:
-                    # prev_msgs = [] # TODO should I reset prev_msgs upon each completed step?
-                    for change_i, nb_parser_with_change_applied in enumerate(step):
-                        nb_states.append(
-                            nb_parser_with_change_applied
-                        )
-
-            num_progress_steps = len(nb_progress)
-
-            if num_progress_steps >= 4:
-                # logger.info(f'Notebook: {nb_parser.filepath}')
-                # logger.info(f'Log: {nb_log_parser.filepath}')
-                # logger.info(f'Number of progress steps: {num_progress_steps}')
-                selected_sessions.append((nb_parser, nb_log_parser, nb_progress, nb_states))
+    os.makedirs(args.output_dir, exist_ok=True)
 
 
+    if args.simulate_log:
+        selected_sessions: List[NotebookSession] = get_selected_simulated_sessions(
+            args.notebooks_dir, min_num_steps=args.min_num_steps
+        )
+    else:
+        selected_sessions: List[NotebookSession] = get_selected_logged_sessions(
+            args.notebooks_dir, args.logs_dir, min_num_steps=args.min_num_steps
+        )
+
+    for nb_session in selected_sessions:
+        nb_session.info()
+
+        qa_pairs_from_methods = []
+        for method, method_qa_pairs in Parallel(n_jobs=-1)(
+            delayed(
+                lambda method: (
+                    method,
+                    get_qa_pairs(
+                        deepcopy(nb_session.nb_states),
+                        consecutive_only=True,
+                        method=method
+                    )
+                )
+            )(
+                method
+            ) for method in args.methods
+        ):
+            qa_pairs_from_methods.append((method, method_qa_pairs))
+
+        if args.shuffle_methods:
+            import random
+            random.shuffle(qa_pairs_from_methods)
 
 
-    output_dir = 'data/qa_pairs'
-    os.makedirs(output_dir, exist_ok=True)
-
-    for nb_parser, nb_log_parser, nb_progress, nb_states in selected_sessions:
-        logger.info(f'Notebook: {nb_parser.filepath}')
-        logger.info(f'Log: {nb_log_parser.filepath}')
-        logger.info(f'Number of progress steps: {len(nb_progress)}')
-
-        qa_pairs_mixed = get_qa_pairs(nb_states, consecutive_only=True, method='mix')
-        csv_filename = f'{output_dir}/qa_pairs_{nb_parser.filepath.replace("/", "_")}_{nb_log_parser.filepath.replace("/", "_")}.xlsx'
 
         # write excel file with maximum width for each column
         import xlsxwriter
+        csv_filename = f'{args.output_dir}/qa_pairs_{nb_session.name}.xlsx'
         workbook = xlsxwriter.Workbook(csv_filename)
         worksheet = workbook.add_worksheet()
         width = 45
         worksheet.set_column('A:A', width)
-        worksheet.set_column('B:B', width)
-        worksheet.set_column('C:C', width)
-        worksheet.set_column('D:D', width)
         worksheet.write('A1', 'code')
-        worksheet.write('B1', f'question')
-        worksheet.write('C1', f'answer_offline')
-        worksheet.write('D1', f'answer_online')
-
-        # wrap text
+        col_offset = 1
+        for method, qa_pairs in qa_pairs_from_methods:
+            qa_pairs_method_name = f'{method}_qa_pairs'
+            some_qa_pairs = list(qa_pairs.values())[0]
+            qa = list(some_qa_pairs['question_answers'])[1]
+            for i, (k, v) in enumerate(qa.items()):
+                col_id = chr(ord('A') + i + col_offset)
+                worksheet.set_column(f'{col_id}:{col_id}', width)
+                worksheet.write(f'{col_id}1', f'{k}_{qa_pairs_method_name}')
+            col_offset += 2
         wrap_format = workbook.add_format({'text_wrap': True})
 
         row = 1
-        for (t1, t2) in qa_pairs_mixed.keys():
-            qa_pair = qa_pairs_mixed[(t1, t2)]
-            worksheet.write(f'A{row}', qa_pair['code'], wrap_format)
-            for i, qa in enumerate(qa_pair['question_answers']):
-                worksheet.write(f'B{row+i}', qa['question'], wrap_format)
-                worksheet.write(f'C{row+i}', qa['answer_offline'], wrap_format)
-                worksheet.write(f'D{row+i}', qa['answer_online'], wrap_format)
+        for (t1, t2) in qa_pairs_from_methods[0][1].keys():
+            col_offset = 1
+            for method, qa_pairs in qa_pairs_from_methods:
+                qa_pairs_method_name = f'{method}_qa_pairs'
+                qa_pair = qa_pairs[(t1, t2)]
+                worksheet.write(row, 0, qa_pair['code'], wrap_format) # NOTE: rewritten for each method; should be same
+                for row_offset, qa in enumerate(qa_pair['question_answers']):
+                    for i, (k, v) in enumerate(qa.items()):
+                        worksheet.write(row + row_offset, i + col_offset, v, wrap_format)
+                col_offset += 2
             row += len(qa_pair['question_answers']) + 1
         workbook.close()
 
-        # write notebook first and last states
-        first_state = nb_states[0]
-        last_state = nb_states[-1]
-        qa_states_dir= f'{output_dir}/qa_pairs_{nb_parser.filepath.replace("/", "_")}_{nb_log_parser.filepath.replace("/", "_")}'
-        os.makedirs(qa_states_dir, exist_ok=True)
-        first_state.to_notebook(directory=qa_states_dir, filepath_postfix='_first_state')
-        last_state.to_notebook(directory=qa_states_dir, filepath_postfix='_last_state')
-        logger.info(f'Wrote to {qa_states_dir} the method names for each column in the csv file')
+        logger.info(f'Wrote to {csv_filename}')
+
+        # write text file including which method correspond to which column
+        txt_filename = f'{args.output_dir}/qa_pairs_{nb_session.name}.txt'
+        with open(txt_filename, mode='w') as txt_file:
+            txt_file.write(f'Column 1: modified_code\n')
+            # txt_file.write(f'Column 2: question_{qa_pairs_method_1_method_name}\n')
+            # txt_file.write(f'Column 3: answer_{qa_pairs_method_1_method_name}\n')
+            # txt_file.write(f'Column 4: question_{qa_pairs_method_2_method_name}\n')
+            # txt_file.write(f'Column 5: answer_{qa_pairs_method_2_method_name}\n')
+            for i, (method, _) in enumerate(qa_pairs_from_methods):
+                qa_pairs_method_name = f'{method}_qa_pairs'
+                txt_file.write(f'Column {i+2}: question_{qa_pairs_method_name}\n')
+                txt_file.write(f'Column {i+3}: answer_{qa_pairs_method_name}\n')
+
+        nb_session.write_first_last_states(args.output_dir)
