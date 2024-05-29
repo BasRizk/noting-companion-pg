@@ -18,7 +18,7 @@ python generate_qa_pairs.py --notebooks_dir data/tac_notebooks --logs_dir data/t
 
 ### **(2)** Generate QA pairs with simulate logs (without logs) example (dummy each code cell correspond to one step at time):
     ```bash
-    python generate_qa_pairs.py --notebooks_dir data/online_notebooks --simulate_log --methods "online" "mix" --output_dir generated_qa_pairs
+    python generate_qa_pairs.py --notebooks_dir data/online_notebooks --simulate_log --methods "offline" "mix" --output_dir generated_qa_pairs
     ```
 
 #### Parameters of `generate_qa_pairs.py`:
