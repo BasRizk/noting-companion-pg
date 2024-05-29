@@ -12,11 +12,111 @@ from utils import (
     logger
 )
 
-def get_qa_pairs(nb_states: List[NotebookParser], consecutive_only=True, method='offline', num_questions=3, pbar=True):
+def _generate_qa_pairs(nb_states, t1, t2, method, consecutive_only=True, num_questions=3):
     from prompts.generate_questions_per_changes import make_questions_prompt
     from prompts.answer_questions_per_change import answer_questions
     from prompts.code_explain_change import get_diff_nb_states
 
+    nb_state_t1 = nb_states[t1]
+    nb_state_t2 = nb_states[t2]
+
+    qa_pairs_dict = {}
+    cell_diff = get_diff_nb_states(nb_state_t1, nb_state_t2)
+    if consecutive_only:
+        if len(cell_diff) != 1:
+            breakpoint()
+        assert len(cell_diff) == 1, f'Expected 1 cell diff, got {len(cell_diff)}'
+    else:
+        raise NotImplementedError
+
+    code_before_modification = '\n'.join(cell_diff[0][0].get_json()['source'])
+    code_after_modification = '\n'.join(cell_diff[0][1].get_json()['source'])
+
+    if method == 'offline':
+        questions = make_questions_prompt(
+            nb_state_t1,
+            nb_state_t2,
+            max_num_questions_per_update=num_questions,
+            # changes_exps_dict[(t1, t2)] # TODO try to use this as hints
+        )
+        answers, _, _ = answer_questions(
+            nb_state_t1,
+            nb_state_t2,
+            questions,
+        )
+        question_answers = [
+            {
+                'question': question,
+                'answer': answer
+            }
+            for question, answer in zip(questions, answers)
+        ]
+        qa_pairs_dict[(t1, t2)] = {
+            'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
+            'question_answers': question_answers
+        }
+
+    elif method == 'online':
+        import requests
+        response_json = requests.post('https://ckg12.isi.edu/knic-services/generate_questions', json={
+            'code': code_after_modification,
+            'num_questions': num_questions
+        }).json()['results']
+        assert response_json['code'] == code_after_modification, f'Expected code to be the same, got {qa_pairs_dict[(t1, t2)]["code"]}'
+        question_answers = [
+            {
+                'question': qa['question'],
+                'answer': qa['answer']
+            }
+            for qa in response_json['question_answers']
+        ]
+        qa_pairs_dict[(t1, t2)] = {
+            'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
+            'question_answers': question_answers
+        }
+
+    elif method == 'mix':
+        # generate questions from online method
+        # generate answers from offline method
+        qa_pairs_dict = _generate_qa_pairs(
+            nb_states, t1, t2, consecutive_only=True,
+            method='online', num_questions=num_questions
+        )
+        cell_diff = get_diff_nb_states(nb_state_t1, nb_state_t2)
+        assert len(cell_diff) == 1, f'Expected 1 cell diff, got {len(cell_diff)}'
+        code_before_modification = '\n'.join(cell_diff[0][0].get_json()['source'])
+        code_after_modification = '\n'.join(cell_diff[0][1].get_json()['source'])
+        code_out = f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}'
+        assert code_out == qa_pairs_dict[(t1, t2)]['code'], f'Expected code to be the same, got {qa_pairs_dict[(t1, t2)]["code"]}'
+        # online generated questions
+        questions = [
+            qa['question']
+            for qa in qa_pairs_dict[(t1, t2)]['question_answers']
+        ]
+        # answer questions from online method using offline method answering part
+        answers, _, _ = answer_questions(
+            nb_state_t1,
+            nb_state_t2,
+            questions,
+        )
+        question_answers = [
+            {
+                'question': question,
+                'answer_offline': offline_answer,
+                'answer_online': online_qa['answer']
+            }
+            for question, offline_answer, online_qa in zip(questions, answers, qa_pairs_dict[(t1, t2)]['question_answers'])
+        ]
+        qa_pairs_dict[(t1, t2)] = {
+            'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
+            'question_answers': question_answers
+        }
+    else:
+        raise ValueError(f'Invalid method: {method}')
+
+    return qa_pairs_dict
+
+def get_qa_pairs(nb_states: List[NotebookParser], consecutive_only=True, method='offline', num_questions=3, pbar=True):
     qa_pairs_dict = {}
     for i in range(len(nb_states)):
         for j in range(i+1, len(nb_states)):
@@ -24,97 +124,23 @@ def get_qa_pairs(nb_states: List[NotebookParser], consecutive_only=True, method=
                 continue
             qa_pairs_dict[(i, j)] = None
 
-    for (t1, t2) in tqdm(qa_pairs_dict.keys(), desc=f'Generating QA pairs by {method}', disable=not pbar):
-        cell_diff = get_diff_nb_states(nb_states[t1], nb_states[t2])
-        if consecutive_only:
-            if len(cell_diff) != 1:
-                breakpoint()
-            assert len(cell_diff) == 1, f'Expected 1 cell diff, got {len(cell_diff)}'
-        else:
-            raise NotImplementedError
-
-        code_before_modification = '\n'.join(cell_diff[0][0].get_json()['source'])
-        code_after_modification = '\n'.join(cell_diff[0][1].get_json()['source'])
-
-        if method == 'offline':
-            questions = make_questions_prompt(
-                nb_states[t1],
-                nb_states[t2],
-                max_num_questions_per_update=num_questions,
-                # changes_exps_dict[(t1, t2)] # TODO try to use this as hints
+    with tqdm(
+        total=len(qa_pairs_dict),
+        desc=f'Generating QA pairs using {method}',
+        disable=not pbar
+    ) as _pbar:
+        for sub_qa_pairs_dict in Parallel(
+            n_jobs=-1, return_as='generator',
+        )(
+            delayed(_generate_qa_pairs)(
+                nb_states, t1, t2, method,
+                consecutive_only=consecutive_only,
+                num_questions=num_questions
             )
-            answers, _, _ = answer_questions(
-                nb_states[t1],
-                nb_states[t2],
-                questions,
-            )
-            question_answers = [
-                {
-                    'question': question,
-                    'answer': answer
-                }
-                for question, answer in zip(questions, answers)
-            ]
-            qa_pairs_dict[(t1, t2)] = {
-                'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
-                'question_answers': question_answers
-            }
-
-        elif method == 'online':
-            import requests
-            response_json = requests.post('https://ckg12.isi.edu/knic-services/generate_questions', json={
-                'code': code_after_modification,
-                'num_questions': num_questions
-            }).json()['results']
-            assert response_json['code'] == code_after_modification, f'Expected code to be the same, got {qa_pairs_dict[(t1, t2)]["code"]}'
-            question_answers = [
-                {
-                    'question': qa['question'],
-                    'answer': qa['answer']
-                }
-                for qa in response_json['question_answers']
-            ]
-            qa_pairs_dict[(t1, t2)] = {
-                'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
-                'question_answers': question_answers
-            }
-
-        elif method == 'mix':
-            # generate questions from online method
-            # generate answers from offline method
-            qa_pairs_dict = get_qa_pairs(nb_states, consecutive_only=True, method='online', pbar=False)
-            for (t1, t2) in qa_pairs_dict.keys():
-                cell_diff = get_diff_nb_states(nb_states[t1], nb_states[t2])
-                assert len(cell_diff) == 1, f'Expected 1 cell diff, got {len(cell_diff)}'
-                code_before_modification = '\n'.join(cell_diff[0][0].get_json()['source'])
-                code_after_modification = '\n'.join(cell_diff[0][1].get_json()['source'])
-                code_out = f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}'
-                assert code_out == qa_pairs_dict[(t1, t2)]['code'], f'Expected code to be the same, got {qa_pairs_dict[(t1, t2)]["code"]}'
-                # online generated questions
-                questions = [
-                    qa['question']
-                    for qa in qa_pairs_dict[(t1, t2)]['question_answers']
-                ]
-                # answer questions from online method using offline method answering part
-                answers, _, _ = answer_questions(
-                    nb_states[t1],
-                    nb_states[t2],
-                    questions,
-                )
-                question_answers = [
-                    {
-                        'question': question,
-                        'answer_offline': offline_answer,
-                        'answer_online': online_qa['answer']
-                    }
-                    for question, offline_answer, online_qa in zip(questions, answers, qa_pairs_dict[(t1, t2)]['question_answers'])
-                ]
-                qa_pairs_dict[(t1, t2)] = {
-                    'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
-                    'question_answers': question_answers
-                }
-        else:
-            raise ValueError(f'Invalid method: {method}')
+            for (t1, t2) in qa_pairs_dict.keys()
+        ):
+            qa_pairs_dict.update(sub_qa_pairs_dict)
+            _pbar.update(1)
 
     return qa_pairs_dict
 
@@ -168,7 +194,7 @@ if __name__ == "__main__":
         nb_session.info()
 
         qa_pairs_from_methods = []
-        for method, method_qa_pairs in Parallel(n_jobs=-1)(
+        for method, method_qa_pairs in Parallel(n_jobs=1)(
             delayed(
                 lambda method: (
                     method,
@@ -187,7 +213,6 @@ if __name__ == "__main__":
         if args.shuffle_methods:
             import random
             random.shuffle(qa_pairs_from_methods)
-
 
 
         # write excel file with maximum width for each column

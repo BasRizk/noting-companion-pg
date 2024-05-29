@@ -97,7 +97,12 @@ class NotebookSession:
 
     @property
     def name(self):
-        return f'{self.nb_parser.filepath.replace("/", "_")}_{self.nb_log_parser.filepath.replace("/", "_")}'
+        _name = f'{self.nb_parser.filepath.replace("/", "_")}'
+        if self.nb_log_parser is not None:
+            _name += f'_{self.nb_log_parser.filepath.replace("/", "_")}'
+        else:
+            _name += '_simulated'
+        return _name
 
     def write_first_last_states(self, output_dir):
         # write notebook first and last states
