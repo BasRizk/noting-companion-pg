@@ -112,19 +112,6 @@ Previous list of Questions:
 Updated list of Questions:
 """
 
-
-
-def _get_nb_states_updates(nb_state_t_minus_1, nb_state_t):
-    nb_updates = []
-    from prompts.code_explain_change import get_diff_nb_states
-    for _, cell_state_t in get_diff_nb_states(
-        nb_state_t_minus_1,
-        nb_state_t
-    ):
-        nb_updates.append(cell_state_t.get_json())
-    return nb_updates
-
-
 from parsers.nb_parser import NotebookParser
 
 def make_questions_prompt(
@@ -141,10 +128,9 @@ def make_questions_prompt(
             'nb_state_t_minus_1', 'nb_updates'
         ]
     )
-    nb_updates = _get_nb_states_updates(
-        nb_state_t_minus_1,
-        nb_state_t
-    )
+    nb_updates = nb_state_t_minus_1.get_updates(nb_state_t)
+    nb_updates = [cell.get_json() for cell in nb_updates]
+
     generate_prompt = prompt.partial(**{
         'nb_state_t_minus_1': nb_state_t_minus_1.get_cells(),
         'nb_updates': nb_updates

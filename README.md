@@ -11,15 +11,17 @@ pip install -r requirements.txt
 #### Ensure you have `data` folder including the following:
 - `data/tac_notebooks/tac_notebooks` including subjects directories named in this pattern `r'.+-Subject-\d+'`, and containing notebooks starter codes used in the respective session.
 - `data/tac_raw_logs` including the log directories named in this pattern `r'subject-\d+'`, and containing the raw logs of the respective session. Each containing log file named `knic-tac-evaluation.log`.
-
-```bash
-python generate_qa_pairs.py --notebooks_dir data/tac_notebooks --logs_dir data/tac_raw_logs --min_num_steps 4 --output_dir generated_qa_pairs --methods "offline" "mix"
-```
+- *Note:* questions generation (from offline) might break with `n_jobs > 1`, hence (`offline` mode might break, but `mix` and `online` work)
+    ```bash
+    python generate_qa_pairs.py --notebooks_dir data/tac_notebooks --logs_dir data/tac_raw_logs --min_num_steps 4 --output_dir generated_qa_pairs --methods "offline" "mix"
+    ```
 
 ### **(2)** Generate QA pairs with simulate logs (without logs) example (dummy each code cell correspond to one step at time):
-    ```bash
-    python generate_qa_pairs.py --notebooks_dir data/online_notebooks --simulate_log --methods "offline" "mix" --output_dir generated_qa_pairs
-    ```
+
+
+```bash
+python generate_qa_pairs.py --notebooks_dir data/online_notebooks --simulate_log --methods "offline" "mix" --output_dir generated_qa_pairs
+```
 
 #### Parameters of `generate_qa_pairs.py`:
 - `--notebooks_dir` path to the notebooks directory (default: `data/tac_notebooks`)

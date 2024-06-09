@@ -212,16 +212,39 @@ def get_notebook_progress_using_log(nb_parser: NotebookParser, nb_log_parser: Lo
 
 
 def get_notebook_progress_simulate(nb_parser_t: NotebookParser, keep_code_header_comments=False, verbose=0):
+    from parsers.nb_parser import CellEntry
     nb_progress = []
-
     for cell_idx in reversed(range(len(nb_parser_t))):
-        current_cell = nb_parser_t[cell_idx]
+        current_cell: CellEntry = nb_parser_t[cell_idx]
         if current_cell.cell_type != "code":
             continue
 
+        if not current_cell.source:
+            # EMPTY
+            if len(current_cell._source) > 0:
+                # _ignored_code = "".join(current_cell._source)
+                # _ignored_cell_id = current_cell.cell_id
+                # _ignored_cell_type = current_cell.cell_type
+                logger.warning(
+                    f'EntryCell source is empty but the original source is not empty, hence ignoring'
+                    f'\n{current_cell.get_xml(tokenize=False)}'
+                )
+            continue
+
+        commented_lines = [line for line in current_cell.source if line.startswith('#')]
+        if len(commented_lines) == len(current_cell.source):
+            logger.warning(
+                f'EntryCell source is all commented lines, hence ignoring'
+                f'\n{current_cell.get_xml()}'
+            )
+            continue
+
+
+
         fake_cell_excution_begin_entry = LogEntry(
             entry_type="CELL_EXECUTION_BEGIN",
-            content="\n\\n".join("".join(current_cell.source).split('\n')),
+            content="\n".join(current_cell.source),
+            # content="\n\\n".join("".join(current_cell._source).split('\n')),
             cell_type=current_cell.cell_type,
             notebook=nb_parser_t.filepath,
             # NOTE: DUMMY arguments as it is simulation
@@ -235,6 +258,12 @@ def get_notebook_progress_simulate(nb_parser_t: NotebookParser, keep_code_header
             nb_parser_t_minus_1 = nb_parser_t.drop_code(current_cell)
         else:
             nb_parser_t_minus_1 = nb_parser_t.drop_content(current_cell)
+
+        nb_diffs = nb_parser_t_minus_1.get_diff(nb_parser_t)
+        if len(nb_diffs) != 1:
+            breakpoint()
+            raise Exception('Invalid number of changes in cells of the notebook states :: dropping content of a cell should result in only one change in the notebook state')
+
         nb_progress.append(
             NBStep(
                 nb_parser_state=nb_parser_t, # the new state at time t, before the reverse change
@@ -243,21 +272,6 @@ def get_notebook_progress_simulate(nb_parser_t: NotebookParser, keep_code_header
                 change_type='INSERT'
             )
         )
-
-        # VALIDATION STEP
-        for i in range(len(nb_parser_t)):
-            cell_source = nb_parser_t[i].source
-            # ensure that every one ends with '\n' except the last one
-            for j in range(len(cell_source)-1):
-                if not cell_source[j].endswith('\n'):
-                    raise Exception(f'Invalid cell source @ {i} {j}:\n{cell_source[j]}')
-
-        for i in range(len(nb_parser_t_minus_1)):
-            cell_source = nb_parser_t[i].source
-            # ensure that every one ends with '\n' except the last one
-            for j in range(len(cell_source)-1):
-                if not cell_source[j].endswith('\n'):
-                    raise Exception(f'Invalid cell source @ {i} {j}:\n{cell_source[j]}')
 
         nb_parser_t = nb_parser_t_minus_1
 

@@ -12,34 +12,46 @@ from utils import (
     logger
 )
 
-def _generate_qa_pairs(nb_states, t1, t2, method, consecutive_only=True, num_questions=3):
+
+def _generate_qa_pairs(
+    nb_states: List[NotebookParser],
+    t1: int, t2: int, method: str,
+    consecutive_only: bool=True, # TODO, right now, consecutive_only is the only supported option
+    num_questions: int=3
+):
     from prompts.generate_questions_per_changes import make_questions_prompt
     from prompts.answer_questions_per_change import answer_questions
-    from prompts.code_explain_change import get_diff_nb_states
 
     nb_state_t1 = nb_states[t1]
     nb_state_t2 = nb_states[t2]
 
     qa_pairs_dict = {}
-    cell_diff = get_diff_nb_states(nb_state_t1, nb_state_t2)
+    nb_diffs = nb_state_t1.get_diff(nb_state_t2)
     if consecutive_only:
-        if len(cell_diff) != 1:
+        if len(nb_diffs) != 1:
             breakpoint()
-        assert len(cell_diff) == 1, f'Expected 1 cell diff, got {len(cell_diff)}'
+        assert len(nb_diffs) == 1, f'Expected 1 nb diffs, got {len(nb_diffs)}'
     else:
         raise NotImplementedError
 
-    code_before_modification = '\n'.join(cell_diff[0][0].get_json()['source'])
-    code_after_modification = '\n'.join(cell_diff[0][1].get_json()['source'])
+
+    cell_before_modification = nb_diffs[0][0]
+    cell_after_modification = nb_diffs[0][1]
+    # code_before_modification = '\n'.join(cell_before_modification.source)
+    code_after_modification = '\n'.join(cell_after_modification.source)
+    code_out =\
+        f'**Before Modification**\n' +\
+        f'{cell_before_modification.get_xml()}\n' +\
+        f'**After Modification**\n' +\
+        f'{cell_after_modification.get_xml()}'
 
     if method == 'offline':
         questions = make_questions_prompt(
             nb_state_t1,
             nb_state_t2,
             max_num_questions_per_update=num_questions,
-            # changes_exps_dict[(t1, t2)] # TODO try to use this as hints
         )
-        answers, _, _ = answer_questions(
+        answers, t1_contexts, t2_contexts = answer_questions(
             nb_state_t1,
             nb_state_t2,
             questions,
@@ -47,14 +59,14 @@ def _generate_qa_pairs(nb_states, t1, t2, method, consecutive_only=True, num_que
         question_answers = [
             {
                 'question': question,
-                'answer': answer
+                'answer': answer,
+                't1_context': t1_context,
+                't2_context': t2_context
             }
-            for question, answer in zip(questions, answers)
+            for question, answer, t1_context, t2_context
+            in zip(questions, answers, t1_contexts, t2_contexts)
         ]
-        qa_pairs_dict[(t1, t2)] = {
-            'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
-            'question_answers': question_answers
-        }
+        qa_pairs_dict[(t1, t2)] = {'code': code_out, 'question_answers': question_answers}
 
     elif method == 'online':
         import requests
@@ -70,10 +82,7 @@ def _generate_qa_pairs(nb_states, t1, t2, method, consecutive_only=True, num_que
             }
             for qa in response_json['question_answers']
         ]
-        qa_pairs_dict[(t1, t2)] = {
-            'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
-            'question_answers': question_answers
-        }
+        qa_pairs_dict[(t1, t2)] = {'code': code_out, 'question_answers': question_answers}
 
     elif method == 'mix':
         # generate questions from online method
@@ -82,11 +91,6 @@ def _generate_qa_pairs(nb_states, t1, t2, method, consecutive_only=True, num_que
             nb_states, t1, t2, consecutive_only=True,
             method='online', num_questions=num_questions
         )
-        cell_diff = get_diff_nb_states(nb_state_t1, nb_state_t2)
-        assert len(cell_diff) == 1, f'Expected 1 cell diff, got {len(cell_diff)}'
-        code_before_modification = '\n'.join(cell_diff[0][0].get_json()['source'])
-        code_after_modification = '\n'.join(cell_diff[0][1].get_json()['source'])
-        code_out = f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}'
         assert code_out == qa_pairs_dict[(t1, t2)]['code'], f'Expected code to be the same, got {qa_pairs_dict[(t1, t2)]["code"]}'
         # online generated questions
         questions = [
@@ -94,7 +98,7 @@ def _generate_qa_pairs(nb_states, t1, t2, method, consecutive_only=True, num_que
             for qa in qa_pairs_dict[(t1, t2)]['question_answers']
         ]
         # answer questions from online method using offline method answering part
-        answers, _, _ = answer_questions(
+        offline_answers, t1_contexts, t2_contexts = answer_questions(
             nb_state_t1,
             nb_state_t2,
             questions,
@@ -102,21 +106,28 @@ def _generate_qa_pairs(nb_states, t1, t2, method, consecutive_only=True, num_que
         question_answers = [
             {
                 'question': question,
+                'answer_online': online_qa['answer'],
                 'answer_offline': offline_answer,
-                'answer_online': online_qa['answer']
+                't1_context': t1_context,
+                't2_context': t2_context
             }
-            for question, offline_answer, online_qa in zip(questions, answers, qa_pairs_dict[(t1, t2)]['question_answers'])
+            for question, offline_answer, t1_context, t2_context, online_qa in zip(
+                questions,
+                offline_answers, t1_contexts, t2_contexts,
+                qa_pairs_dict[(t1, t2)]['question_answers']
+            )
         ]
-        qa_pairs_dict[(t1, t2)] = {
-            'code': f'> Before Modification\n{code_before_modification}\n\n > After Modification\n{code_after_modification}',
-            'question_answers': question_answers
-        }
+        qa_pairs_dict[(t1, t2)] = {'code': code_out, 'question_answers': question_answers}
     else:
         raise ValueError(f'Invalid method: {method}')
 
     return qa_pairs_dict
 
-def get_qa_pairs(nb_states: List[NotebookParser], consecutive_only=True, method='offline', num_questions=3, pbar=True):
+def get_qa_pairs(
+    nb_states: List[NotebookParser],
+    consecutive_only=True, method='offline',
+    num_questions=3, pbar=True, n_jobs=-1
+):
     qa_pairs_dict = {}
     for i in range(len(nb_states)):
         for j in range(i+1, len(nb_states)):
@@ -129,8 +140,8 @@ def get_qa_pairs(nb_states: List[NotebookParser], consecutive_only=True, method=
         desc=f'Generating QA pairs using {method}',
         disable=not pbar
     ) as _pbar:
-        for sub_qa_pairs_dict in Parallel(
-            n_jobs=-1, return_as='generator',
+        for i, sub_qa_pairs_dict in enumerate(Parallel(
+            n_jobs=n_jobs, return_as='generator',
         )(
             delayed(_generate_qa_pairs)(
                 nb_states, t1, t2, method,
@@ -138,7 +149,9 @@ def get_qa_pairs(nb_states: List[NotebookParser], consecutive_only=True, method=
                 num_questions=num_questions
             )
             for (t1, t2) in qa_pairs_dict.keys()
-        ):
+        )):
+            print(i)
+            print('='*100)
             qa_pairs_dict.update(sub_qa_pairs_dict)
             _pbar.update(1)
 
@@ -155,13 +168,18 @@ if __name__ == "__main__":
     parser.add_argument('--min_num_steps', type=int, default=4, help='Minimum number of steps in the progress log to consider a session')
     parser.add_argument('--keep_code_header_comments', action='store_true', default=False)
     parser.add_argument('--output_dir', type=str, default='generated_qa_pairs')
+    parser.add_argument('--n_jobs', type=int, default=-1)
+    parser.add_argument('--num_questions', type=int, default=3)
+    parser.add_argument('--offset', type=float, default=0,
+                        help='Offset for the first step in notebook progress to start generating QA pairs')
     parser.add_argument(
         '--methods', nargs='+',
         default=[
             'offline',
             # 'online',
             'mix'
-        ]
+        ],
+        choices=['offline', 'online', 'mix']
     )
     parser.add_argument('--shuffle_methods', action='store_true', default=False)
     args = parser.parse_args()
@@ -183,32 +201,28 @@ if __name__ == "__main__":
 
     if args.simulate_log:
         selected_sessions: List[NotebookSession] = get_selected_simulated_sessions(
-            args.notebooks_dir, min_num_steps=args.min_num_steps
+            args.notebooks_dir, min_num_steps=args.min_num_steps, offset=args.offset,
         )
     else:
         selected_sessions: List[NotebookSession] = get_selected_logged_sessions(
-            args.notebooks_dir, args.logs_dir, min_num_steps=args.min_num_steps
+            args.notebooks_dir, args.logs_dir,
+            min_num_steps=args.min_num_steps, offset=args.offset
         )
 
     for nb_session in selected_sessions:
         nb_session.info()
-
-        qa_pairs_from_methods = []
-        for method, method_qa_pairs in Parallel(n_jobs=1)(
-            delayed(
-                lambda method: (
-                    method,
-                    get_qa_pairs(
-                        deepcopy(nb_session.nb_states),
-                        consecutive_only=True,
-                        method=method
-                    )
+        qa_pairs_from_methods = [
+            (
+                method,
+                get_qa_pairs(
+                    deepcopy(nb_session.nb_states),
+                    consecutive_only=True,
+                    method=method,
+                    num_questions=args.num_questions,
+                    n_jobs=args.n_jobs,
                 )
-            )(
-                method
             ) for method in args.methods
-        ):
-            qa_pairs_from_methods.append((method, method_qa_pairs))
+        ]
 
         if args.shuffle_methods:
             import random
@@ -221,9 +235,12 @@ if __name__ == "__main__":
         workbook = xlsxwriter.Workbook(csv_filename)
         worksheet = workbook.add_worksheet()
         width = 45
-        worksheet.set_column('A:A', width)
-        worksheet.write('A1', 'code')
-        col_offset = 1
+        # worksheet.set_column('A:A', width)
+        worksheet.write('A1', 'step_num')
+        worksheet.set_column('B:B', width)
+        worksheet.write('B1', 'modified_code')
+        col_offset_start = 2
+        col_offset = col_offset_start
         for method, qa_pairs in qa_pairs_from_methods:
             qa_pairs_method_name = f'{method}_qa_pairs'
             some_qa_pairs = list(qa_pairs.values())[0]
@@ -235,13 +252,21 @@ if __name__ == "__main__":
             col_offset += 2
         wrap_format = workbook.add_format({'text_wrap': True})
 
+        if 1 > args.offset > 0:
+            step_num_offset = int(len(qa_pairs_from_methods[0][1])/args.offset)
+        else:
+            if int(args.offset) != args.offset:
+                raise ValueError(f'Invalid offset: {args.offset}')
+            step_num_offset = int(args.offset)
+
         row = 1
-        for (t1, t2) in qa_pairs_from_methods[0][1].keys():
-            col_offset = 1
+        for step_num, (t1, t2) in enumerate(qa_pairs_from_methods[0][1].keys(), step_num_offset):
+            col_offset = col_offset_start
             for method, qa_pairs in qa_pairs_from_methods:
                 qa_pairs_method_name = f'{method}_qa_pairs'
                 qa_pair = qa_pairs[(t1, t2)]
-                worksheet.write(row, 0, qa_pair['code'], wrap_format) # NOTE: rewritten for each method; should be same
+                worksheet.write(row, 0, step_num) # NOTE: rewritten for each method; should be same
+                worksheet.write(row, 1, qa_pair['code'], wrap_format) # NOTE: rewritten for each method; should be same
                 for row_offset, qa in enumerate(qa_pair['question_answers']):
                     for i, (k, v) in enumerate(qa.items()):
                         worksheet.write(row + row_offset, i + col_offset, v, wrap_format)
@@ -251,17 +276,17 @@ if __name__ == "__main__":
 
         logger.info(f'Wrote to {csv_filename}')
 
-        # write text file including which method correspond to which column
-        txt_filename = f'{args.output_dir}/qa_pairs_{nb_session.name}.txt'
-        with open(txt_filename, mode='w') as txt_file:
-            txt_file.write(f'Column 1: modified_code\n')
-            # txt_file.write(f'Column 2: question_{qa_pairs_method_1_method_name}\n')
-            # txt_file.write(f'Column 3: answer_{qa_pairs_method_1_method_name}\n')
-            # txt_file.write(f'Column 4: question_{qa_pairs_method_2_method_name}\n')
-            # txt_file.write(f'Column 5: answer_{qa_pairs_method_2_method_name}\n')
-            for i, (method, _) in enumerate(qa_pairs_from_methods):
-                qa_pairs_method_name = f'{method}_qa_pairs'
-                txt_file.write(f'Column {i+2}: question_{qa_pairs_method_name}\n')
-                txt_file.write(f'Column {i+3}: answer_{qa_pairs_method_name}\n')
+        # # write text file including which method correspond to which column
+        # txt_filename = f'{args.output_dir}/qa_pairs_{nb_session.name}.txt'
+        # with open(txt_filename, mode='w') as txt_file:
+        #     txt_file.write(f'Column 1: modified_code\n')
+        #     # txt_file.write(f'Column 2: question_{qa_pairs_method_1_method_name}\n')
+        #     # txt_file.write(f'Column 3: answer_{qa_pairs_method_1_method_name}\n')
+        #     # txt_file.write(f'Column 4: question_{qa_pairs_method_2_method_name}\n')
+        #     # txt_file.write(f'Column 5: answer_{qa_pairs_method_2_method_name}\n')
+        #     for i, (method, _) in enumerate(qa_pairs_from_methods):
+        #         qa_pairs_method_name = f'{method}_qa_pairs'
+        #         txt_file.write(f'Column {i+2}: question_{qa_pairs_method_name}\n')
+        #         txt_file.write(f'Column {i+3}: answer_{qa_pairs_method_name}\n')
 
         nb_session.write_first_last_states(args.output_dir)

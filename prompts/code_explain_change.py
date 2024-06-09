@@ -116,10 +116,7 @@ def code_explain_change(
         return response
 
     nb_updates = []
-    for _, cell_state_t in get_diff_nb_states(
-        nb_state_t_minus_1,
-        nb_state_t
-    ):
+    for _, cell_state_t in nb_state_t_minus_1.get_diff(nb_state_t):
         nb_updates.append(cell_state_t.get_json())
 
     if len(nb_updates) == 0:

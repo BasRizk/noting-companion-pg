@@ -11,6 +11,53 @@ from parsers.log_parser import LogParser
 from nb_progress import get_notebook_progress_using_log, InvalidLogError, NotebookStateLogMismatchError, NBStep
 
 
+class NotebookSession:
+    def __init__(self, nb_parser, nb_states, nb_log_parser=None):
+        self.nb_parser = nb_parser
+        self.nb_log_parser = nb_log_parser
+        self.nb_states = nb_states
+
+    def info(self):
+        logger.info(f'Notebook: {self.nb_parser.filepath}')
+        if self.nb_log_parser is not None:
+            logger.info(f'Log: {self.nb_log_parser.filepath}')
+        else:
+            logger.info(f'Log: Simulated.')
+        logger.info(f'Number of progress steps: {len(self.nb_states)}')
+
+    @property
+    def name(self):
+        _name = f'{self.nb_parser.filepath.replace("/", "_")}'
+        if self.nb_log_parser is not None:
+            _name += f'_{self.nb_log_parser.filepath.replace("/", "_")}'
+        else:
+            _name += '_simulated'
+        return _name
+
+    def write_first_last_states(self, output_dir):
+        # write notebook first and last states
+        first_state = self.nb_states[0]
+        last_state = self.nb_states[-1]
+        qa_states_dir= f'{output_dir}/qa_pairs_{self.name}'
+        os.makedirs(qa_states_dir, exist_ok=True)
+        first_state.to_notebook(directory=qa_states_dir, filepath_postfix='_first_state')
+        last_state.to_notebook(directory=qa_states_dir, filepath_postfix='_last_state')
+        logger.info(f'Wrote to {qa_states_dir} the method names for each column in the csv file')
+
+
+def _apply_offset(nb_states, offset):
+    if len(nb_states) > offset >= 1:
+        nb_states = nb_states[int(offset):]
+    elif offset > 0:
+        # percentage
+        nb_states = nb_states[int(len(nb_states)*offset):]
+    elif offset < 0:
+        # if offset < -1:
+        raise Exception('Invalid notebook step offset')
+        # percentage
+        # nb_states = nb_states[int(len(nb_states)*offset):]
+    return nb_states
+
 def get_all_file_with_extension_in_dir_recursively(dir_path, extension):
     import os
     filepaths = []
@@ -55,7 +102,7 @@ def prettify_str(_obj, text_width=120, percentage=1.0):
     else:
         raise Exception(f"Type {type(_obj)} not supported for prettify_str")
 
-def generate_nb_states(nb_progress: List[NBStep]):
+def generate_nb_states(nb_progress: List[NBStep], offset=0):
     nb_states: List[NotebookParser] = []
     for step_i, step in enumerate(nb_progress):
         step.reset()
@@ -72,51 +119,15 @@ def generate_nb_states(nb_progress: List[NBStep]):
                     state_t = nb_states[-1]
                     if len(state_t) != len(state_t_minus_1):
                         raise Exception('Invalid number of cells in the notebook states')
-                    from prompts.code_explain_change import get_diff_nb_states
-                    cell_diff = get_diff_nb_states(state_t_minus_1, state_t)
-                    if len(cell_diff) != 1:
+                    nb_diffs = state_t_minus_1.get_diff(state_t)
+                    if len(nb_diffs) != 1:
                         breakpoint()
                         raise Exception('Invalid number of changes in cells of the notebook states')
 
-    return nb_states
-
-class NotebookSession:
-    def __init__(self, nb_parser, nb_progress, nb_states, nb_log_parser=None):
-        self.nb_parser = nb_parser
-        self.nb_log_parser = nb_log_parser
-        self.nb_progress = nb_progress
-        self.nb_states = nb_states
-
-    def info(self):
-        logger.info(f'Notebook: {self.nb_parser.filepath}')
-        if self.nb_log_parser is not None:
-            logger.info(f'Log: {self.nb_log_parser.filepath}')
-        else:
-            logger.info(f'Log: Simulated.')
-        logger.info(f'Number of progress steps: {len(self.nb_progress)}')
-
-    @property
-    def name(self):
-        _name = f'{self.nb_parser.filepath.replace("/", "_")}'
-        if self.nb_log_parser is not None:
-            _name += f'_{self.nb_log_parser.filepath.replace("/", "_")}'
-        else:
-            _name += '_simulated'
-        return _name
-
-    def write_first_last_states(self, output_dir):
-        # write notebook first and last states
-        first_state = self.nb_states[0]
-        last_state = self.nb_states[-1]
-        qa_states_dir= f'{output_dir}/qa_pairs_{self.name}'
-        os.makedirs(qa_states_dir, exist_ok=True)
-        first_state.to_notebook(directory=qa_states_dir, filepath_postfix='_first_state')
-        last_state.to_notebook(directory=qa_states_dir, filepath_postfix='_last_state')
-        logger.info(f'Wrote to {qa_states_dir} the method names for each column in the csv file')
+    return _apply_offset(nb_states, offset)
 
 
-
-def get_selected_logged_sessions(notebooks_dir, logs_dir, min_num_steps=4):
+def get_selected_logged_sessions(notebooks_dir, logs_dir, min_num_steps=4, offset=0):
     all_log_filepathes = get_all_file_with_extension_in_dir_recursively(logs_dir, ".log")
     all_log_filepathes.sort()
     # skip files containing baseline
@@ -145,19 +156,21 @@ def get_selected_logged_sessions(notebooks_dir, logs_dir, min_num_steps=4):
                 continue
 
             nb_states = generate_nb_states(nb_progress)
+            nb_states = _apply_offset(nb_states, offset)
+
             num_progress_steps = len(nb_progress)
             if num_progress_steps >= min_num_steps:
                 # logger.info(f'Notebook: {nb_parser.filepath}')
                 # logger.info(f'Log: {nb_log_parser.filepath}')
                 # logger.info(f'Number of progress steps: {num_progress_steps}')
                 selected_sessions.append(
-                    NotebookSession(nb_parser, nb_progress, nb_states, nb_log_parser)
+                    NotebookSession(nb_parser, nb_states, nb_log_parser)
                 )
     return selected_sessions
 
 import os
 from nb_progress import get_notebook_progress_simulate
-def get_selected_simulated_sessions(notebooks_dir, min_num_steps=4):
+def get_selected_simulated_sessions(notebooks_dir, min_num_steps=4, offset=0):
     nb_filename_dict = {
         os.path.basename(nb_filepath): nb_filepath
         for nb_filepath in
@@ -174,13 +187,13 @@ def get_selected_simulated_sessions(notebooks_dir, min_num_steps=4):
             logger.error(f'@ {i} Exception: {e} with nb_filepath({nb_parser.filepath})')
             continue
 
-        nb_states = generate_nb_states(nb_progress)
+        nb_states = generate_nb_states(nb_progress, offset=offset)
 
         num_progress_steps = len(nb_progress)
         if num_progress_steps >= min_num_steps:
             # logger.info(f'Notebook: {nb_parser.filepath}')
             # logger.info(f'Number of progress steps: {num_progress_steps}')
             selected_sessions.append(
-                NotebookSession(nb_parser, nb_progress, nb_states)
+                NotebookSession(nb_parser, nb_states)
             )
     return selected_sessions
